@@ -7,48 +7,33 @@
 
 <div class="container text-center">
     <div class="row" style="margin: 10px;">
-      <div class="col " style="margin: 3px;">
-        <div class="list-group" id="right1">
-            <a href="" class="list-group-item list-group-item-action">
-                <i class="fa fa-shopping-basket" aria-hidden="true"></i>
-                <span class="link-name">Supermarket</span>
+      <div class="col" style="margin: 3px;">
+        <!-- Header and admin button -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="text-start">Categorías</h4>
+            {% if current_user.is_authenticated and current_user.id == 1 %}
+            <a href="{{ url_for('views.categories') }}" class="btn btn-primary btn-sm">
+                <i class="fa fa-plus"></i> Agregar Categoría
             </a>
-            <a href="" class="list-group-item list-group-item-action">
-                <i class="fa fa-user" aria-hidden="true"></i>
-                <span class="link-name">Health & Beuty</span>
-            </a>
-            <a href="" class="list-group-item list-group-item-action">
-                <i class="fa-solid fa-comment"></i>                
-                <span class="link-name">Home & Office</span>
-            </a>
-            <a href="" class="list-group-item list-group-item-action">
-                <i class="fa fa-camera" aria-hidden="true"></i>
-                <span class="link-name">Fashion</span>
-            </a>
-            <a href="" class="list-group-item list-group-item-action">
-                <i class="fa fa-audio-description" aria-hidden="true"></i>
-                <span class="link-name">Electronics</span>
-            </a>
-            <a href="" class="list-group-item list-group-item-action">
-                <i class="fa fa-cubes" aria-hidden="true"></i>
-                <span class="link-name">Gaming</span>
-            </a>
-            <a href="" class="list-group-item list-group-item-action">
-                <i class="fa fa-child" aria-hidden="true"></i>
-                <span class="link-name">Baby Products</span>
-            </a>
-            <a href="" class="list-group-item list-group-item-action">
-                <i class="fa fa-bicycle" aria-hidden="true"></i>
-                <span class="link-name">Sporting Goods</span>
-            </a>
-            <a href="" class="list-group-item list-group-item-action">
-                <i class="fa fa-binoculars" aria-hidden="true"></i>
-                <span class="link-name">Garden & Outdoor</span>
-            </a>
-
+            {% endif %}
+        </div>
+        <!-- Categories list with fixed height and scroll -->
+        <div class="list-group" id="right1" style="max-height: 300px; overflow-y: auto; border-radius: 10px;">
+            {% for category in categories %}
+            <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                <a href="" class="text-decoration-none text-dark">
+                    <i class="fa fa-shopping-basket" aria-hidden="true"></i>
+                    <span class="link-name">{{ category.name }}</span>
+                </a>
+                {% if current_user.is_authenticated and current_user.id == 1 %}
+                <a href="{{ url_for('views.edit_category', category_id=category.id) }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fa fa-edit"></i>
+                </a>
+                {% endif %}
+            </div>
+            {% endfor %}
         </div>
       </div>
-
 
       <div class="col-md-7" style="margin: 3px;">
         <img src="../static/images/center.gif" alt="" style="width: 600px; height: 365px; border-radius: 10px;">
@@ -120,42 +105,52 @@
 </div>
 
 
+<!-- Sección donde se muestran los productos en flash sale -->
 <div class="container text-center">
     <div class="row" style="margin: 8px; background-color: rgb(219, 218, 218);" id="column">
-
+        <!-- Itera sobre todos los productos que tienen flash_sale=True -->
         {% for item in items %}
-
         <div class="col" style="background-color: white;">
-        
+            <!-- Imagen del producto -->
             <img src="{{ item.product_picture }}" alt="" style="height: 202px; width: 180px; border-radius: 10px;">
 
+            <!-- Nombre del producto -->
             <div class="row" style="margin-top: 5px;">
                 <h6 style="color: gray;">{{ item.product_name }}</h6>
             </div>
 
+            <!-- Precios y botón de añadir/editar -->
             <div class="row" style="margin-top: 10px;">
-            
                 <div class="col">
-
+                    <!-- Precio actual y precio anterior tachado -->
                     <h5 style="font-weight: 600; font-family: 'Times New Roman', Times, serif;">Ksh {{ item.current_price }}</h5>
                     <strike><p style="color: gray;">Ksh {{ item.previous_price}}</p></strike>
                 </div>
-
                 <div class="col">
-                    <a href="/add-to-cart/{{ item.id }}">Add</a>
+                    {% if current_user.is_authenticated %}
+                        {% if current_user.id == 1 %}
+                            <!-- Admin ve botón de editar -->
+                            <a href="/edit-product/{{ item.id }}" class="btn btn-sm btn-outline-primary">
+                                <i class="fa fa-edit"></i> Editar
+                            </a>
+                        {% else %}
+                            <!-- Cliente normal ve botón de añadir -->
+                            <a href="/add-to-cart/{{ item.id }}" class="btn btn-sm btn-primary">Add</a>
+                        {% endif %}
+                    {% else %}
+                        <!-- Usuario no autenticado ve botón de añadir -->
+                        <a href="/add-to-cart/{{ item.id }}" class="btn btn-sm btn-primary">Add</a>
+                    {% endif %}
                 </div>
-            
             </div>
 
+            <!-- Cantidad disponible -->
             <div class="row">
                 <p>{{ item.in_stock }} Items Left</p>
             </div>
         </div>
-    
         {% endfor %}
-
     </div>
 </div>
-
 
 {% endblock %}

@@ -1,15 +1,11 @@
 from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
-
+from flask_migrate import Migrate
 
 db = SQLAlchemy()
+migrate = Migrate()
 DB_NAME = 'database.sqlite3'
-
-
-def create_database():
-    db.create_all()
-    print('Database Created')
 
 
 def create_app():
@@ -18,6 +14,21 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_NAME}'
 
     db.init_app(app)
+    migrate.init_app(app, db)
+
+    from .views import views
+    from .auth import auth
+    from .admin import admin
+    from .models import Customer, Cart, Product, Order, Category, Favorite
+
+    app.register_blueprint(views, url_prefix='/')
+    app.register_blueprint(auth, url_prefix='/')
+    app.register_blueprint(admin, url_prefix='/')
+
+    with app.app_context():
+        db.create_all()
+        from .init_categories import init_default_categories
+        init_default_categories()
 
     @app.errorhandler(404)
     def page_not_found(error):
@@ -30,18 +41,6 @@ def create_app():
     @login_manager.user_loader
     def load_user(id):
         return Customer.query.get(int(id))
-
-    from .views import views
-    from .auth import auth
-    from .admin import admin
-    from .models import Customer, Cart, Product, Order
-
-    app.register_blueprint(views, url_prefix='/') # localhost:5000/about-us
-    app.register_blueprint(auth, url_prefix='/') # localhost:5000/auth/change-password
-    app.register_blueprint(admin, url_prefix='/')
-
-    # with app.app_context():
-    #     create_database()
 
     return app
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,8 +17,18 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
     <title>Amazon | {% block title %} {% endblock %}</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #d88be2 0%, #a10ea1 100%) !important;
+            min-height: 100vh;
+        }
+        
+        /* Para páginas específicas que no quieren el fondo morado, 
+           pueden sobrescribir este estilo en su propio bloque de estilos */
+    </style>
+    {% block styles %}{% endblock %}
 </head>
-<body style="background-color: rgb(124, 14, 151);">
+<body>
 
 
     <!-- navbar section -->
@@ -133,8 +143,8 @@
 
 
     <footer class="container-fluid  text-center p-2 mt-5" style="background-color: orange; color: white;">
-      <a href="https://github.com/Frost-Codes" style="color: white;">Amazon</a> | <span>
-        <i class="fa-sharp fa-regular fa-copyright"></i></span> 2023 All rights reserved
+      <a href="https://github.com/Grato390/tienda_con_flask" style="color: white;">Amazon</a> | <span>
+        <i class="fa-sharp fa-regular fa-copyright"></i></span> 2025 All rights reserved
 
     </footer>
 

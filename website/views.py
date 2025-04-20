@@ -1,10 +1,11 @@
 from flask import Blueprint, render_template, flash, redirect, request, jsonify
-from .models import Product, Cart, Order
+from .models import Product, Cart, Order, Category
 from flask_login import login_required, current_user
 from . import db
 from intasend import APIService
 from .forms import ShopItemsForm
 from werkzeug.utils import secure_filename
+import os
 
 
 views = Blueprint('views', __name__)
@@ -16,11 +17,12 @@ API_TOKEN = 'YOUR_API_TOKEN'
 
 @views.route('/')
 def home():
-
-    items = Product.query.filter_by(flash_sale=True)
-
-    return render_template('home.html', items=items, cart=Cart.query.filter_by(customer_link=current_user.id).all()
-                           if current_user.is_authenticated else [])
+    items = Product.query.filter_by(flash_sale=True).all()
+    categories = Category.query.all()
+    return render_template('home.html', 
+                         items=items, 
+                         categories=categories,
+                         cart=Cart.query.filter_by(customer_link=current_user.id).all() if current_user.is_authenticated else [])
 
 
 @views.route('/add-to-cart/<int:item_id>')
@@ -209,14 +211,17 @@ def search():
 @login_required
 def add_product():
     form = ShopItemsForm()
+    form.category_id.choices = [(c.id, c.name) for c in Category.query.all()]
     
     if form.validate_on_submit():
         product_name = form.product_name.data
         current_price = form.current_price.data
         previous_price = form.previous_price.data
+        discount_percentage = form.discount_percentage.data
         in_stock = form.in_stock.data
         flash_sale = form.flash_sale.data
-
+        category_id = form.category_id.data
+        
         file = form.product_picture.data
         file_name = secure_filename(file.filename)
         file_path = f'./media/{file_name}'
@@ -246,6 +251,144 @@ def add_product():
 def list_products():
     items = Product.query.all()
     return render_template('list_products.html', items=items)
+
+
+@views.route('/categories', methods=['GET', 'POST'])
+@login_required
+def categories():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        description = request.form.get('description')
+        
+        new_category = Category(name=name, description=description)
+        try:
+            db.session.add(new_category)
+            db.session.commit()
+            flash('Categoría agregada exitosamente')
+        except Exception as e:
+            flash('Error al agregar la categoría')
+            print(e)
+            
+    categories = Category.query.all()
+    return render_template('categories.html', categories=categories)
+
+@views.route('/delete-category/<int:category_id>')
+@login_required
+def delete_category(category_id):
+    category = Category.query.get_or_404(category_id)
+    try:
+        db.session.delete(category)
+        db.session.commit()
+        flash('Categoría eliminada exitosamente')
+    except Exception as e:
+        flash('Error al eliminar la categoría')
+        print(e)
+    return redirect('/categories')
+
+
+@views.route('/edit-category/<int:category_id>', methods=['GET', 'POST'])
+@login_required
+def edit_category(category_id):
+    if current_user.id != 1:
+        flash('No tienes permiso para editar categorías')
+        return redirect('/')
+        
+    category = Category.query.get_or_404(category_id)
+    
+    if request.method == 'POST':
+        name = request.form.get('name')
+        description = request.form.get('description')
+        
+        try:
+            category.name = name
+            category.description = description
+            db.session.commit()
+            flash('Categoría actualizada exitosamente')
+            return redirect('/categories')
+        except Exception as e:
+            flash('Error al actualizar la categoría')
+            print(e)
+            
+    return render_template('edit_category.html', category=category)
+
+
+def delete_product_image(image_path):
+    if image_path and image_path.startswith('/static/'):
+        # Convert URL path to filesystem path
+        full_path = os.path.join(os.path.dirname(__file__), image_path.lstrip('/'))
+        if os.path.exists(full_path):
+            try:
+                os.remove(full_path)
+                return True
+            except Exception as e:
+                print(f"Error deleting image: {e}")
+    return False
+
+@views.route('/delete-product/<int:product_id>')
+@login_required
+def delete_product(product_id):
+    if current_user.id != 1:
+        flash('No tienes permiso para eliminar productos')
+        return redirect('/')
+        
+    product = Product.query.get_or_404(product_id)
+    
+    # Delete the product image first
+    if product.product_picture:
+        delete_product_image(product.product_picture)
+    
+    try:
+        db.session.delete(product)
+        db.session.commit()
+        flash('Producto eliminado exitosamente')
+    except Exception as e:
+        flash('Error al eliminar el producto')
+        print(e)
+    
+    return redirect('/')
+
+@views.route('/edit-product/<int:product_id>', methods=['GET', 'POST'])
+@login_required
+def edit_product(product_id):
+    if current_user.id != 1:
+        flash('No tienes permiso para editar productos')
+        return redirect('/')
+        
+    product = Product.query.get_or_404(product_id)
+    categories = Category.query.all()
+    
+    if request.method == 'POST':
+        if 'product_picture' in request.files:
+            file = request.files['product_picture']
+            if file.filename != '':
+                # Delete old image first
+                if product.product_picture:
+                    delete_product_image(product.product_picture)
+                
+                # Save new image
+                file_name = secure_filename(file.filename)
+                file_path = f'/static/media/{file_name}'
+                full_path = os.path.join(os.path.dirname(__file__), f'.{file_path}')
+                file.save(full_path)
+                product.product_picture = file_path
+        
+        # Update other fields
+        product.product_name = request.form.get('product_name')
+        product.current_price = float(request.form.get('current_price'))
+        product.previous_price = float(request.form.get('previous_price'))
+        product.in_stock = int(request.form.get('in_stock'))
+        product.category_id = int(request.form.get('category_id'))
+        product.flash_sale = 'flash_sale' in request.form
+        
+        try:
+            db.session.commit()
+            flash('Producto actualizado exitosamente')
+            return redirect('/')
+        except Exception as e:
+            flash('Error al actualizar el producto')
+            print(e)
+            
+    return render_template('edit_product.html', product=product, categories=categories)
 
 
 

@@ -13,6 +13,7 @@ class Customer(db.Model, UserMixin):
 
     cart_items = db.relationship('Cart', backref=db.backref('customer', lazy=True))
     orders = db.relationship('Order', backref=db.backref('customer', lazy=True))
+    favorites = db.relationship('Favorite', backref='customer', lazy=True)
 
     @property
     def password(self):
@@ -29,21 +30,48 @@ class Customer(db.Model, UserMixin):
         return '<Customer %r>' % Customer.id
 
 
+class Category(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    products = db.relationship('Product', backref='category', lazy=True)
+
+    def __str__(self):
+        return self.name
+
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     product_name = db.Column(db.String(100), nullable=False)
     current_price = db.Column(db.Float, nullable=False)
     previous_price = db.Column(db.Float, nullable=False)
+    discount_percentage = db.Column(db.Float, default=0)
     in_stock = db.Column(db.Integer, nullable=False)
     product_picture = db.Column(db.String(1000), nullable=False)
     flash_sale = db.Column(db.Boolean, default=False)
     date_added = db.Column(db.DateTime, default=datetime.utcnow)
-
+    
+    # Nueva relación con Category
+    category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=True)
+    
+    # Relaciones existentes
     carts = db.relationship('Cart', backref=db.backref('product', lazy=True))
     orders = db.relationship('Order', backref=db.backref('product', lazy=True))
+    # Nueva relación con Favorites
+    favorites = db.relationship('Favorite', backref='product', lazy=True)
 
     def __str__(self):
         return '<Product %r>' % self.product_name
+
+class Favorite(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    date_added = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relaciones
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+
+    def __str__(self):
+        return f'Favorite: {self.product.product_name} by {self.customer.username}'
 
 
 class Cart(db.Model):

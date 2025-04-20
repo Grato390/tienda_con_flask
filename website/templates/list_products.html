@@ -2,43 +2,85 @@
 
 {% block title %}Lista de Productos{% endblock %}
 
-{% block body %}
-<div class="container mt-4">
-    <h2>Lista de Productos en Base de Datos</h2>
+{% block styles %}
+<style>
+    .container {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 15px;
+        padding: 20px;
+        margin-top: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
     
-    {% if items %}
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Imagen</th>
-                <th>Nombre</th>
-                <th>Precio Actual</th>
-                <th>Precio Anterior</th>
-                <th>Stock</th>
-                <th>Oferta Flash</th>
-                <th>Fecha Agregado</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in items %}
-            <tr>
-                <td>{{ item.id }}</td>
-                <td><img src="{{ item.product_picture }}" alt="{{ item.product_name }}" style="width: 50px; height: 50px;"></td>
-                <td>{{ item.product_name }}</td>
-                <td>${{ item.current_price }}</td>
-                <td>${{ item.previous_price }}</td>
-                <td>{{ item.in_stock }}</td>
-                <td>{% if item.flash_sale %}Sí{% else %}No{% endif %}</td>
-                <td>{{ item.date_added.strftime('%Y-%m-%d %H:%M') }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <div class="alert alert-info">
-        No hay productos en la base de datos.
+    .products-title {
+        color: #2c3e50;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    
+    .table thead th {
+        background: linear-gradient(to right, #3498db, #2980b9);
+        color: white;
+    }
+</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/list_products.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="list-products-container">
+    <div class="container">
+        <h2 class="products-title">Lista de Productos en Base de Datos</h2>
+        
+        {% if items %}
+        <div class="products-table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Imagen</th>
+                        <th>Nombre</th>
+                        <th>Precio Actual</th>
+                        <th>Precio Anterior</th>
+                        <th>Stock</th>
+                        <th>Oferta Flash</th>
+                        <th>Fecha Agregado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ item.id }}</td>
+                        <td><img src="{{ item.product_picture }}" alt="{{ item.product_name }}" 
+                             class="product-image" style="width: 50px; height: 50px;"></td>
+                        <td>{{ item.product_name }}</td>
+                        <td>${{ item.current_price }}</td>
+                        <td>${{ item.previous_price }}</td>
+                        <td>{{ item.in_stock }}</td>
+                        <td>{% if item.flash_sale %}Sí{% else %}No{% endif %}</td>
+                        <td>{{ item.date_added.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            <div class="btn-group-actions">
+                                <a href="{{ url_for('views.edit_product', product_id=item.id) }}" 
+                                   class="btn btn-primary btn-sm">
+                                    <i class="fa fa-edit"></i> Editar
+                                </a>
+                                <a href="{{ url_for('views.delete_product', product_id=item.id) }}" 
+                                   class="btn btn-danger btn-sm">
+                                    <i class="fa fa-trash"></i> Eliminar
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            No hay productos en la base de datos.
+        </div>
+        {% endif %}
     </div>
-    {% endif %}
 </div>
 {% endblock %}
