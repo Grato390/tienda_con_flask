@@ -1,12 +1,10 @@
 from flask import Blueprint, render_template, flash, redirect
 from .forms import LoginForm, SignUpForm, PasswordChangeForm
-from .models import Customer
+from .models import User  # Changed from Customer to User
 from . import db
 from flask_login import login_user, login_required, logout_user
 
-
 auth = Blueprint('auth', __name__)
-
 
 @auth.route('/sign-up', methods=['GET', 'POST'])
 def sign_up():
@@ -18,13 +16,13 @@ def sign_up():
         password2 = form.password2.data
 
         if password1 == password2:
-            new_customer = Customer()
-            new_customer.email = email
-            new_customer.username = username
-            new_customer.password = password2
+            new_user = User()  # Changed from Customer to User
+            new_user.email = email
+            new_user.username = username
+            new_user.password = password2
 
             try:
-                db.session.add(new_customer)
+                db.session.add(new_user)
                 db.session.commit()
                 flash('Account Created Successfully, You can now Login')
                 return redirect('/login')
@@ -32,13 +30,7 @@ def sign_up():
                 print(e)
                 flash('Account Not Created!!, Email already exists')
 
-            form.email.data = ''
-            form.username.data = ''
-            form.password1.data = ''
-            form.password2.data = ''
-
     return render_template('signup.html', form=form)
-
 
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
@@ -47,20 +39,18 @@ def login():
         email = form.email.data
         password = form.password.data
 
-        customer = Customer.query.filter_by(email=email).first()
+        user = User.query.filter_by(email=email).first()  # Changed to User
 
-        if customer:
-            if customer.verify_password(password=password):
-                login_user(customer)
+        if user:
+            if user.verify_password(password=password):
+                login_user(user)
                 return redirect('/')
             else:
                 flash('Incorrect Email or Password')
-
         else:
             flash('Account does not exist please Sign Up')
 
     return render_template('login.html', form=form)
-
 
 @auth.route('/logout', methods=['GET', 'POST'])
 @login_required
@@ -68,19 +58,17 @@ def log_out():
     logout_user()
     return redirect('/')
 
-
 @auth.route('/profile/<int:customer_id>')
 @login_required
 def profile(customer_id):
-    customer = Customer.query.get(customer_id)
+    customer = User.query.get(customer_id)  # Changed to User
     return render_template('profile.html', customer=customer)
-
 
 @auth.route('/change-password/<int:customer_id>', methods=['GET', 'POST'])
 @login_required
 def change_password(customer_id):
     form = PasswordChangeForm()
-    customer = Customer.query.get(customer_id)
+    customer = User.query.get(customer_id)  # Changed to User
     if form.validate_on_submit():
         current_password = form.current_password.data
         new_password = form.new_password.data

@@ -1,33 +1,13 @@
-from . import db
-from flask_login import UserMixin
 from datetime import datetime
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import UserMixin
+from . import db
 
-
-class Customer(db.Model, UserMixin):
+class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(100), unique=True)
-    username = db.Column(db.String(100))
-    password_hash = db.Column(db.String(150))
-    date_joined = db.Column(db.DateTime(), default=datetime.utcnow)
-
-    cart_items = db.relationship('Cart', backref=db.backref('customer', lazy=True))
-    orders = db.relationship('Order', backref=db.backref('customer', lazy=True))
-
-    @property
-    def password(self):
-        raise AttributeError('Password is not a readable Attribute')
-
-    @password.setter
-    def password(self, password):
-        self.password_hash = generate_password_hash(password=password)
-
-    def verify_password(self, password):
-        return check_password_hash(self.password_hash, password=password)
-
-    def __str__(self):
-        return '<Customer %r>' % Customer.id
-
+    name = db.Column(db.String(100), nullable=False)
+    image = db.Column(db.String(1000), nullable=True)
+    products = db.relationship('Product', backref='category', lazy=True)
 
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -37,42 +17,55 @@ class Product(db.Model):
     in_stock = db.Column(db.Integer, nullable=False)
     product_picture = db.Column(db.String(1000), nullable=False)
     flash_sale = db.Column(db.Boolean, default=False)
+    discount_percentage = db.Column(db.Float, default=0.0)
+    descuento = db.Column(db.Float, default=0.0)  # Nuevo campo para descuento
     date_added = db.Column(db.DateTime, default=datetime.utcnow)
+    category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=True)
+    size = db.Column(db.String(50), nullable=True)
+    ventas = db.relationship('Vender', backref='product', lazy=True, foreign_keys='Vender.product_link')  # Cambiado de carts a ventas
+    orders = db.relationship('Order', backref='product', lazy=True)
+    favorites = db.relationship('Favorite', backref='product', lazy=True)
+    
+    # Método para calcular el precio con descuento
+    def precio_con_descuento(self):
+        if self.descuento > 0:
+            return self.current_price * (1 - self.descuento / 100)
+        return self.current_price
 
-    carts = db.relationship('Cart', backref=db.backref('product', lazy=True))
-    orders = db.relationship('Order', backref=db.backref('product', lazy=True))
-
-    def __str__(self):
-        return '<Product %r>' % self.product_name
-
-
-class Cart(db.Model):
+class Vender(db.Model):  # Cambiado de Cart a Vender
     id = db.Column(db.Integer, primary_key=True)
+    customer_link = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    product_link = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
 
-    customer_link = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
-    product_link = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
-
-    # customer product
-
-    def __str__(self):
-        return '<Cart %r>' % self.id
-
+class Favorite(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
     price = db.Column(db.Float, nullable=False)
-    status = db.Column(db.String(100), nullable=False)
-    payment_id = db.Column(db.String(1000), nullable=False)
+    status = db.Column(db.String(50), nullable=False)
+    payment_method = db.Column(db.String(50), nullable=False)
+    date_ordered = db.Column(db.DateTime, default=datetime.utcnow)
 
-    customer_link = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
-    product_link = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
-
-    # customer
-
-    def __str__(self):
-        return '<Order %r>' % self.id
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(100), nullable=False)
+    password = db.Column(db.String(100), nullable=False)
+    date_joined = db.Column(db.DateTime, default=datetime.utcnow)
+    ventas = db.relationship('Vender', backref='user', lazy=True, foreign_keys='Vender.customer_link')  # Cambiado de carts a ventas
+    orders = db.relationship('Order', backref='user', lazy=True)
+    favorites = db.relationship('Favorite', backref='user', lazy=True)
+    
+    # Método para verificar la contraseña
+    def verify_password(self, password):
+        return self.password == password  # En producción, usar hash
 
 
 

@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, flash, redirect, request, jsonify
-from .models import Product, Cart, Order
+from .models import Product, Vender, Order
 from flask_login import login_required, current_user
 from . import db
 from intasend import APIService
@@ -16,10 +16,9 @@ API_TOKEN = 'YOUR_API_TOKEN'
 
 @views.route('/')
 def home():
-
     items = Product.query.filter_by(flash_sale=True)
-
-    return render_template('home.html', items=items, cart=Cart.query.filter_by(customer_link=current_user.id).all()
+    
+    return render_template('home.html', items=items, cart=Vender.query.filter_by(customer_link=current_user.id).all()
                            if current_user.is_authenticated else [])
 
 
@@ -27,7 +26,7 @@ def home():
 @login_required
 def add_to_cart(item_id):
     item_to_add = Product.query.get(item_id)
-    item_exists = Cart.query.filter_by(product_link=item_id, customer_link=current_user.id).first()
+    item_exists = Vender.query.filter_by(product_link=item_id, customer_link=current_user.id).first()
     if item_exists:
         try:
             item_exists.quantity = item_exists.quantity + 1
@@ -39,7 +38,7 @@ def add_to_cart(item_id):
             flash(f'Quantity of { item_exists.product.product_name } not updated')
             return redirect(request.referrer)
 
-    new_cart_item = Cart()
+    new_cart_item = Vender()
     new_cart_item.quantity = 1
     new_cart_item.product_link = item_to_add.id
     new_cart_item.customer_link = current_user.id
@@ -58,7 +57,7 @@ def add_to_cart(item_id):
 @views.route('/cart')
 @login_required
 def show_cart():
-    cart = Cart.query.filter_by(customer_link=current_user.id).all()
+    cart = Vender.query.filter_by(customer_link=current_user.id).all()
     amount = 0
     for item in cart:
         amount += item.product.current_price * item.quantity
@@ -71,11 +70,11 @@ def show_cart():
 def plus_cart():
     if request.method == 'GET':
         cart_id = request.args.get('cart_id')
-        cart_item = Cart.query.get(cart_id)
+        cart_item = Vender.query.get(cart_id)
         cart_item.quantity = cart_item.quantity + 1
         db.session.commit()
 
-        cart = Cart.query.filter_by(customer_link=current_user.id).all()
+        cart = Vender.query.filter_by(customer_link=current_user.id).all()
 
         amount = 0
 
@@ -96,11 +95,11 @@ def plus_cart():
 def minus_cart():
     if request.method == 'GET':
         cart_id = request.args.get('cart_id')
-        cart_item = Cart.query.get(cart_id)
+        cart_item = Vender.query.get(cart_id)
         cart_item.quantity = cart_item.quantity - 1
         db.session.commit()
 
-        cart = Cart.query.filter_by(customer_link=current_user.id).all()
+        cart = Vender.query.filter_by(customer_link=current_user.id).all()
 
         amount = 0
 
@@ -121,11 +120,11 @@ def minus_cart():
 def remove_cart():
     if request.method == 'GET':
         cart_id = request.args.get('cart_id')
-        cart_item = Cart.query.get(cart_id)
+        cart_item = Vender.query.get(cart_id)
         db.session.delete(cart_item)
         db.session.commit()
 
-        cart = Cart.query.filter_by(customer_link=current_user.id).all()
+        cart = Vender.query.filter_by(customer_link=current_user.id).all()
 
         amount = 0
 
@@ -144,7 +143,7 @@ def remove_cart():
 @views.route('/place-order')
 @login_required
 def place_order():
-    customer_cart = Cart.query.filter_by(customer_link=current_user.id)
+    customer_cart = Vender.query.filter_by(customer_link=current_user.id)
     if customer_cart:
         try:
             total = 0
@@ -199,7 +198,7 @@ def search():
     if request.method == 'POST':
         search_query = request.form.get('search')
         items = Product.query.filter(Product.product_name.ilike(f'%{search_query}%')).all()
-        return render_template('search.html', items=items, cart=Cart.query.filter_by(customer_link=current_user.id).all()
+        return render_template('search.html', items=items, cart=Vender.query.filter_by(customer_link=current_user.id).all()
                            if current_user.is_authenticated else [])
 
     return render_template('search.html')
