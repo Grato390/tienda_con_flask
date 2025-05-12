@@ -7,7 +7,8 @@ from os import path
 import os
 import secrets
 import string
-
+from dotenv import load_dotenv
+load_dotenv()
 
 db = SQLAlchemy()
 DB_NAME = "database.sqlite3"
@@ -29,7 +30,7 @@ def create_super_admin():
     from .models import Customer
     super_admin = Customer.query.filter_by(role='super_admin').first()
     if not super_admin:
-        password = "admin123"  # Contraseña fija
+        password = os.environ.get('SUPER_ADMIN_PASSWORD', 'default-password')
         super_admin = Customer(
             email='admin@tienda.com',
             username='super_admin',
