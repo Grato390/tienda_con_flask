@@ -2,5 +2,5 @@ projectKey=proyecto_web
 serverUrl=http://localhost:9000
 serverVersion=25.5.0.107428
 dashboardUrl=http://localhost:9000/dashboard?id=proyecto_web
-ceTaskId=08058932-1df6-4efa-a2b3-fe30c9391b81
-ceTaskUrl=http://localhost:9000/api/ce/task?id=08058932-1df6-4efa-a2b3-fe30c9391b81
+ceTaskId=3805e954-ae72-4a23-83e2-b7da3c8a1621
+ceTaskUrl=http://localhost:9000/api/ce/task?id=3805e954-ae72-4a23-83e2-b7da3c8a1621

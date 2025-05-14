@@ -1,21 +1,18 @@
 import json
 from datetime import datetime
 from flask import Blueprint, render_template, flash, send_from_directory, redirect, request, url_for
-from flask_login import login_required, current_user, login_required
+from flask_login import login_required, current_user
 from .forms import ShopItemsForm, OrderForm, CreateAdminForm
 from werkzeug.utils import secure_filename
 from .models import Product, Order, Customer
 from . import db
 from werkzeug.security import generate_password_hash
 
-
 admin = Blueprint('admin', __name__)
-
 
 @admin.route('/media/<path:filename>')
 def get_image(filename):
     return send_from_directory('../media', filename)
-
 
 @admin.route('/add-shop-items', methods=['GET', 'POST'])
 @login_required
@@ -24,10 +21,9 @@ def add_shop_items():
     if not current_user.is_admin:
         flash('No tienes permiso para acceder a esta página', 'danger')
         return redirect(url_for('views.home'))
-    
-    form = ShopItemsForm()
 
-    if form.validate_on_submit():
+    form = ShopItemsForm()
+    if request.method == 'POST' and form.validate_on_submit():
         product_name = form.product_name.data
         current_price = form.current_price.data
         previous_price = form.previous_price.data
@@ -37,7 +33,7 @@ def add_shop_items():
         file = form.product_picture.data
         file_name = secure_filename(file.filename)
         file_path = f'./media/{file_name}'
-        
+
         try:
             file.save(file_path)
 
@@ -55,14 +51,13 @@ def add_shop_items():
             db.session.commit()
             flash(f'Producto "{product_name}" agregado exitosamente', 'success')
             return redirect(url_for('admin.shop_items'))
-            
+
         except Exception as e:
             db.session.rollback()
             print(f'Error al agregar producto: {str(e)}')
             flash('Error al agregar el producto', 'danger')
 
     return render_template('add_shop_items.html', form=form)
-
 
 @admin.route('/shop-items')
 @login_required
@@ -71,10 +66,9 @@ def shop_items():
     if not current_user.is_admin:
         flash('No tienes permiso para acceder a esta página', 'danger')
         return redirect(url_for('views.home'))
-    
+
     items = Product.query.order_by(Product.date_added.desc()).all()
     return render_template('shop_items.html', items=items)
-
 
 @admin.route('/admin-management')
 @login_required
@@ -83,7 +77,7 @@ def admin_management():
     if not current_user.is_super_admin:
         flash('No tienes permiso para acceder a esta página', 'danger')
         return redirect(url_for('views.home'))
-    
+
     # Obtener solo administradores (no clientes normales)
     users = Customer.query.filter(
         Customer.role.in_(['super_admin', 'admin'])
@@ -95,9 +89,8 @@ def admin_management():
         ),
         Customer.username
     ).all()
-    
-    return render_template('admin/admin_management.html', users=users)
 
+    return render_template('admin/admin_management.html', users=users)
 
 @admin.route('/update-user-role/<int:user_id>', methods=['POST'])
 @login_required
@@ -105,25 +98,25 @@ def update_user_role(user_id):
     if not current_user.is_super_admin:
         flash('No tienes permiso para realizar esta acción', 'danger')
         return redirect(url_for('views.home'))
-    
+
     user = Customer.query.get_or_404(user_id)
     new_role = request.form.get('new_role')
-    
+
     # Validar que el rol sea válido
     if new_role not in ['user', 'admin', 'super_admin']:
         flash('Rol no válido', 'danger')
         return redirect(url_for('admin.admin_management'))
-    
+
     # No permitir modificar el rol del super admin principal
     if user.role == 'super_admin' and user.email == 'admin@tienda.com':
         flash('No puedes modificar el rol del super administrador principal', 'danger')
         return redirect(url_for('admin.admin_management'))
-    
+
     # No permitir que un usuario se quite sus propios permisos de administrador
     if user.id == current_user.id and new_role == 'user':
         flash('No puedes quitarte a ti mismo los permisos de administrador', 'danger')
         return redirect(url_for('admin.admin_management'))
-    
+
     try:
         user.role = new_role
         db.session.commit()
@@ -132,9 +125,8 @@ def update_user_role(user_id):
         db.session.rollback()
         flash('Error al actualizar el rol del usuario', 'danger')
         print(f'Error al actualizar rol: {str(e)}')
-    
-    return redirect(url_for('admin.admin_management'))
 
+    return redirect(url_for('admin.admin_management'))
 
 @admin.route('/create-admin', methods=['GET', 'POST'])
 @login_required
@@ -143,34 +135,34 @@ def create_admin():
     if not current_user.is_super_admin:
         flash('No tienes permiso para realizar esta acción', 'danger')
         return redirect(url_for('views.home'))
-    
+
     form = CreateAdminForm()
-    
+
     if form.validate_on_submit():
         # Verificar si el email ya existe
         existing_user = Customer.query.filter_by(email=form.email.data).first()
         if existing_user:
             flash('Ya existe un usuario con este correo electrónico', 'danger')
             return redirect(url_for('admin.create_admin'))
-        
+
         # Verificar si el nombre de usuario ya existe
         existing_username = Customer.query.filter_by(username=form.username.data).first()
         if existing_username:
             flash('Este nombre de usuario ya está en uso', 'danger')
             return redirect(url_for('admin.create_admin'))
-        
+
         # Crear el nuevo administrador
         new_admin = Customer(
             username=form.username.data,
             email=form.email.data,
-            password=form.password.data,
+            password=generate_password_hash(form.password.data),  # Almacenar la contraseña como hash
             role=form.role.data,  # Usar el rol seleccionado en el formulario
             is_first_login=True,
             force_password_change=form.force_password_change.data,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
-        
+
         # Configurar preguntas de seguridad
         security_questions = {
             'question1': form.security_question1.data,
@@ -179,7 +171,7 @@ def create_admin():
             'answer2': form.security_answer2.data
         }
         new_admin.security_questions = json.dumps(security_questions)
-        
+
         try:
             db.session.add(new_admin)
             db.session.commit()
@@ -189,12 +181,8 @@ def create_admin():
             db.session.rollback()
             flash('Error al crear el administrador', 'danger')
             print(f'Error al crear administrador: {str(e)}')
-    
-    # Asegurarse de que el formulario tenga el token CSRF
-    if request.method == 'GET':
-        return render_template('admin/create_admin.html', form=form)
-    return render_template('admin/create_admin.html', form=form)
 
+    return render_template('admin/create_admin.html', form=form)
 
 @admin.route('/update-item/<int:item_id>', methods=['GET', 'POST'])
 @login_required
@@ -203,7 +191,7 @@ def update_item(item_id):
     if not current_user.is_admin:
         flash('No tienes permiso para acceder a esta página', 'danger')
         return redirect(url_for('views.home'))
-    
+
     item_to_update = Product.query.get_or_404(item_id)
     form = ShopItemsForm(obj=item_to_update)
 
@@ -215,7 +203,7 @@ def update_item(item_id):
             item_to_update.previous_price = form.previous_price.data
             item_to_update.in_stock = form.in_stock.data
             item_to_update.flash_sale = form.flash_sale.data
-            
+
             # Manejar la carga de la nueva imagen si se proporciona
             if form.product_picture.data:
                 file = form.product_picture.data
@@ -223,20 +211,19 @@ def update_item(item_id):
                 file_path = f'./media/{file_name}'
                 file.save(file_path)
                 item_to_update.product_picture = file_path
-            
+
             item_to_update.updated_at = datetime.utcnow()
-            
+
             db.session.commit()
             flash(f'Producto "{item_to_update.product_name}" actualizado exitosamente', 'success')
             return redirect(url_for('admin.shop_items'))
-            
+
         except Exception as e:
             db.session.rollback()
             print(f'Error al actualizar producto: {str(e)}')
             flash('Error al actualizar el producto', 'danger')
-    
-    return render_template('update_item.html', form=form, item=item_to_update)
 
+    return render_template('update_item.html', form=form, item=item_to_update)
 
 @admin.route('/delete-item/<int:item_id>', methods=['POST'])
 @login_required
@@ -245,7 +232,7 @@ def delete_item(item_id):
     if not current_user.is_admin:
         flash('No tienes permiso para realizar esta acción', 'danger')
         return redirect(url_for('views.home'))
-    
+
     try:
         item_to_delete = Product.query.get_or_404(item_id)
         product_name = item_to_delete.product_name
@@ -256,9 +243,8 @@ def delete_item(item_id):
         db.session.rollback()
         print(f'Error al eliminar producto: {str(e)}')
         flash('Error al eliminar el producto', 'danger')
-    
-    return redirect(url_for('admin.shop_items'))
 
+    return redirect(url_for('admin.shop_items'))
 
 @admin.route('/delete-admin/<int:admin_id>', methods=['POST'])
 @login_required
@@ -266,19 +252,19 @@ def delete_admin(admin_id):
     if not current_user.is_super_admin:
         flash('No tienes permiso para realizar esta acción', 'danger')
         return redirect(url_for('views.home'))
-    
+
     # No permitir auto-eliminación
     if current_user.id == admin_id:
         flash('No puedes eliminarte a ti mismo', 'danger')
         return redirect(url_for('admin.admin_management'))
-    
+
     admin_to_delete = Customer.query.get_or_404(admin_id)
-    
+
     # No permitir eliminar al super admin principal
     if admin_to_delete.role == 'super_admin' and admin_to_delete.email == 'admin@tienda.com':
         flash('No puedes eliminar al super administrador principal', 'danger')
         return redirect(url_for('admin.admin_management'))
-    
+
     try:
         db.session.delete(admin_to_delete)
         db.session.commit()
@@ -287,9 +273,8 @@ def delete_admin(admin_id):
         db.session.rollback()
         flash('Error al eliminar el administrador', 'danger')
         print(e)
-    
-    return redirect(url_for('admin.admin_management'))
 
+    return redirect(url_for('admin.admin_management'))
 
 @admin.route('/view-orders')
 @login_required
@@ -298,7 +283,6 @@ def order_view():
         orders = Order.query.all()
         return render_template('view_orders.html', orders=orders)
     return render_template('404.html')
-
 
 @admin.route('/update-order/<int:order_id>', methods=['GET', 'POST'])
 @login_required
@@ -325,7 +309,6 @@ def update_order(order_id):
 
     return render_template('404.html')
 
-
 @admin.route('/customers')
 @login_required
 def display_customers():
@@ -334,19 +317,9 @@ def display_customers():
         return render_template('customers.html', customers=customers)
     return render_template('404.html')
 
-
 @admin.route('/admin-page')
 @login_required
 def admin_page():
     if current_user.id == 1:
         return render_template('admin.html')
     return render_template('404.html')
-
-
-
-
-
-
-
-
-

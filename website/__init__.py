@@ -64,8 +64,11 @@ def create_database(app):
 
 def create_app():
     app = Flask(__name__, instance_relative_config=True)
-    # Usar una clave secreta desde una variable de entorno
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(16))  # Generar una clave aleatoria si no está configurada
+    # Usar una clave secreta desde una variable de entorno y lanzar un error si no está configurada
+    secret_key = os.environ.get('SECRET_KEY')
+    if not secret_key:
+        raise RuntimeError("La variable de entorno 'SECRET_KEY' no está configurada. Configúrala antes de iniciar la aplicación.")
+    app.config['SECRET_KEY'] = secret_key
     app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(app.instance_path, DB_NAME)}"
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['UPLOAD_FOLDER'] = 'website/static/uploads'
