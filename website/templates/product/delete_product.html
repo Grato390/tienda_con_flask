@@ -3,6 +3,14 @@
 {% block title %}Borrar Producto{% endblock %}
 
 {% block body %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
 <div class="container mt-4">
     <h2 class="mb-4 text-white">¿Estás seguro de que deseas eliminar este producto?</h2>
 

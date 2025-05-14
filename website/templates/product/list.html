@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}Lista de Productos{% endblock %}
+{% block body %}
+<h1>Productos</h1>
+<ul>
+{% for product in products.items if products.items is defined else products %}
+  <li>{{ product.product_name }}</li>
+{% endfor %}
+</ul>
+{% endblock %} 

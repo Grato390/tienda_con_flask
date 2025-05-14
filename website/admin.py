@@ -10,6 +10,15 @@ from werkzeug.security import generate_password_hash
 
 admin = Blueprint('admin', __name__)
 
+PERMISSION_DENIED_MESSAGE = 'No tienes permiso para acceder a esta página'
+HOME_ENDPOINT = 'views.home'
+ACTION_DENIED_MESSAGE = 'No tienes permiso para realizar esta acción'
+ADMIN_MANAGEMENT_ENDPOINT = 'admin.admin_management'
+SHOP_ITEMS_ENDPOINT = 'admin.shop_items'
+
+# Constantes para plantillas
+NOT_FOUND_TEMPLATE = '404.html'
+
 @admin.route('/media/<path:filename>')
 def get_image(filename):
     return send_from_directory('../media', filename)
@@ -19,8 +28,8 @@ def get_image(filename):
 def add_shop_items():
     # Solo administradores pueden agregar productos
     if not current_user.is_admin:
-        flash('No tienes permiso para acceder a esta página', 'danger')
-        return redirect(url_for('views.home'))
+        flash(PERMISSION_DENIED_MESSAGE, 'danger')
+        return redirect(url_for(HOME_ENDPOINT))
 
     form = ShopItemsForm()
     if request.method == 'POST' and form.validate_on_submit():
@@ -50,7 +59,7 @@ def add_shop_items():
             db.session.add(new_shop_item)
             db.session.commit()
             flash(f'Producto "{product_name}" agregado exitosamente', 'success')
-            return redirect(url_for('admin.shop_items'))
+            return redirect(url_for(SHOP_ITEMS_ENDPOINT))
 
         except Exception as e:
             db.session.rollback()
@@ -64,8 +73,8 @@ def add_shop_items():
 def shop_items():
     # Solo administradores pueden ver la lista de productos
     if not current_user.is_admin:
-        flash('No tienes permiso para acceder a esta página', 'danger')
-        return redirect(url_for('views.home'))
+        flash(PERMISSION_DENIED_MESSAGE, 'danger')
+        return redirect(url_for(HOME_ENDPOINT))
 
     items = Product.query.order_by(Product.date_added.desc()).all()
     return render_template('shop_items.html', items=items)
@@ -75,16 +84,16 @@ def shop_items():
 def admin_management():
     # Solo super administradores pueden acceder a la gestión de administradores
     if not current_user.is_super_admin:
-        flash('No tienes permiso para acceder a esta página', 'danger')
-        return redirect(url_for('views.home'))
+        flash(PERMISSION_DENIED_MESSAGE, 'danger')
+        return redirect(url_for(HOME_ENDPOINT))
 
     # Obtener solo administradores (no clientes normales)
     users = Customer.query.filter(
         Customer.role.in_(['super_admin', 'admin'])
     ).order_by(
         db.case(
-            [(Customer.role == 'super_admin', 1),
-             (Customer.role == 'admin', 2)],
+            (Customer.role == 'super_admin', 1),
+            (Customer.role == 'admin', 2),
             else_=3
         ),
         Customer.username
@@ -96,8 +105,8 @@ def admin_management():
 @login_required
 def update_user_role(user_id):
     if not current_user.is_super_admin:
-        flash('No tienes permiso para realizar esta acción', 'danger')
-        return redirect(url_for('views.home'))
+        flash(ACTION_DENIED_MESSAGE, 'danger')
+        return redirect(url_for(HOME_ENDPOINT))
 
     user = Customer.query.get_or_404(user_id)
     new_role = request.form.get('new_role')
@@ -105,17 +114,17 @@ def update_user_role(user_id):
     # Validar que el rol sea válido
     if new_role not in ['user', 'admin', 'super_admin']:
         flash('Rol no válido', 'danger')
-        return redirect(url_for('admin.admin_management'))
+        return redirect(url_for(ADMIN_MANAGEMENT_ENDPOINT))
 
     # No permitir modificar el rol del super admin principal
     if user.role == 'super_admin' and user.email == 'admin@tienda.com':
         flash('No puedes modificar el rol del super administrador principal', 'danger')
-        return redirect(url_for('admin.admin_management'))
+        return redirect(url_for(ADMIN_MANAGEMENT_ENDPOINT))
 
     # No permitir que un usuario se quite sus propios permisos de administrador
     if user.id == current_user.id and new_role == 'user':
         flash('No puedes quitarte a ti mismo los permisos de administrador', 'danger')
-        return redirect(url_for('admin.admin_management'))
+        return redirect(url_for(ADMIN_MANAGEMENT_ENDPOINT))
 
     try:
         user.role = new_role
@@ -126,15 +135,15 @@ def update_user_role(user_id):
         flash('Error al actualizar el rol del usuario', 'danger')
         print(f'Error al actualizar rol: {str(e)}')
 
-    return redirect(url_for('admin.admin_management'))
+    return redirect(url_for(ADMIN_MANAGEMENT_ENDPOINT))
 
 @admin.route('/create-admin', methods=['GET', 'POST'])
 @login_required
 def create_admin():
     # Solo super administradores pueden crear nuevos administradores
     if not current_user.is_super_admin:
-        flash('No tienes permiso para realizar esta acción', 'danger')
-        return redirect(url_for('views.home'))
+        flash(ACTION_DENIED_MESSAGE, 'danger')
+        return redirect(url_for(HOME_ENDPOINT))
 
     form = CreateAdminForm()
 
@@ -176,7 +185,7 @@ def create_admin():
             db.session.add(new_admin)
             db.session.commit()
             flash('Administrador creado exitosamente', 'success')
-            return redirect(url_for('admin.admin_management'))
+            return redirect(url_for(ADMIN_MANAGEMENT_ENDPOINT))
         except Exception as e:
             db.session.rollback()
             flash('Error al crear el administrador', 'danger')
@@ -189,8 +198,8 @@ def create_admin():
 def update_item(item_id):
     # Solo administradores pueden actualizar productos
     if not current_user.is_admin:
-        flash('No tienes permiso para acceder a esta página', 'danger')
-        return redirect(url_for('views.home'))
+        flash(PERMISSION_DENIED_MESSAGE, 'danger')
+        return redirect(url_for(HOME_ENDPOINT))
 
     item_to_update = Product.query.get_or_404(item_id)
     form = ShopItemsForm(obj=item_to_update)
@@ -216,7 +225,7 @@ def update_item(item_id):
 
             db.session.commit()
             flash(f'Producto "{item_to_update.product_name}" actualizado exitosamente', 'success')
-            return redirect(url_for('admin.shop_items'))
+            return redirect(url_for(SHOP_ITEMS_ENDPOINT))
 
         except Exception as e:
             db.session.rollback()
@@ -230,8 +239,8 @@ def update_item(item_id):
 def delete_item(item_id):
     # Solo administradores pueden eliminar productos
     if not current_user.is_admin:
-        flash('No tienes permiso para realizar esta acción', 'danger')
-        return redirect(url_for('views.home'))
+        flash(ACTION_DENIED_MESSAGE, 'danger')
+        return redirect(url_for(HOME_ENDPOINT))
 
     try:
         item_to_delete = Product.query.get_or_404(item_id)
@@ -244,26 +253,26 @@ def delete_item(item_id):
         print(f'Error al eliminar producto: {str(e)}')
         flash('Error al eliminar el producto', 'danger')
 
-    return redirect(url_for('admin.shop_items'))
+    return redirect(url_for(SHOP_ITEMS_ENDPOINT))
 
 @admin.route('/delete-admin/<int:admin_id>', methods=['POST'])
 @login_required
 def delete_admin(admin_id):
     if not current_user.is_super_admin:
-        flash('No tienes permiso para realizar esta acción', 'danger')
-        return redirect(url_for('views.home'))
+        flash(ACTION_DENIED_MESSAGE, 'danger')
+        return redirect(url_for(HOME_ENDPOINT))
 
     # No permitir auto-eliminación
     if current_user.id == admin_id:
         flash('No puedes eliminarte a ti mismo', 'danger')
-        return redirect(url_for('admin.admin_management'))
+        return redirect(url_for(ADMIN_MANAGEMENT_ENDPOINT))
 
     admin_to_delete = Customer.query.get_or_404(admin_id)
 
     # No permitir eliminar al super admin principal
     if admin_to_delete.role == 'super_admin' and admin_to_delete.email == 'admin@tienda.com':
         flash('No puedes eliminar al super administrador principal', 'danger')
-        return redirect(url_for('admin.admin_management'))
+        return redirect(url_for(ADMIN_MANAGEMENT_ENDPOINT))
 
     try:
         db.session.delete(admin_to_delete)
@@ -274,7 +283,7 @@ def delete_admin(admin_id):
         flash('Error al eliminar el administrador', 'danger')
         print(e)
 
-    return redirect(url_for('admin.admin_management'))
+    return redirect(url_for(ADMIN_MANAGEMENT_ENDPOINT))
 
 @admin.route('/view-orders')
 @login_required
@@ -282,7 +291,7 @@ def order_view():
     if current_user.id == 1:
         orders = Order.query.all()
         return render_template('view_orders.html', orders=orders)
-    return render_template('404.html')
+    return render_template(NOT_FOUND_TEMPLATE)
 
 @admin.route('/update-order/<int:order_id>', methods=['GET', 'POST'])
 @login_required
@@ -307,7 +316,7 @@ def update_order(order_id):
 
         return render_template('order_update.html', form=form)
 
-    return render_template('404.html')
+    return render_template(NOT_FOUND_TEMPLATE)
 
 @admin.route('/customers')
 @login_required
@@ -315,11 +324,11 @@ def display_customers():
     if current_user.id == 1:
         customers = Customer.query.all()
         return render_template('customers.html', customers=customers)
-    return render_template('404.html')
+    return render_template(NOT_FOUND_TEMPLATE)
 
 @admin.route('/admin-page')
 @login_required
 def admin_page():
     if current_user.id == 1:
         return render_template('admin.html')
-    return render_template('404.html')
+    return render_template(NOT_FOUND_TEMPLATE)

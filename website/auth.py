@@ -17,11 +17,38 @@ import string
 
 
 auth = Blueprint('auth', __name__)
+# Constantes para endpoints
+HOME_ENDPOINT = 'views.home'
+LOGIN_ENDPOINT = 'auth.login'
 
+# Constantes para plantillas
+LOGIN_TEMPLATE = 'auth/login.html'
 # Configuración de Flask-Mail
 mail = Mail()
 serializer = URLSafeTimedSerializer(os.environ.get('SECRET_KEY', 'your-secret-key'))
+import random
+import string
 
+def generate_secure_password(length):
+    if length < 4:
+        raise ValueError("La longitud de la contraseña debe ser al menos 4 para incluir todos los tipos de caracteres.")
+
+    # Asegúrate de incluir al menos un carácter de cada tipo
+    lower = random.choice(string.ascii_lowercase)
+    upper = random.choice(string.ascii_uppercase)
+    digit = random.choice(string.digits)
+    special = random.choice(string.punctuation)
+
+    # Rellena el resto de la contraseña con caracteres aleatorios
+    remaining_length = length - 4
+    all_characters = string.ascii_letters + string.digits + string.punctuation
+    remaining = ''.join(random.choices(all_characters, k=remaining_length))
+
+    # Mezcla los caracteres para evitar patrones predecibles
+    password = list(lower + upper + digit + special + remaining)
+    random.shuffle(password)
+
+    return ''.join(password)
 
 def validate_password_strength(form, field):
     password = field.data
@@ -76,7 +103,7 @@ def sign_up():
             db.session.commit()
             login_user(new_user, remember=True)
             flash('¡Cuenta creada exitosamente!', category='success')
-            return redirect(url_for('views.home'))
+            return redirect(url_for(HOME_ENDPOINT))
 
     return render_template('auth/sign_up.html', form=form)
 
@@ -84,7 +111,7 @@ def sign_up():
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('views.home'))
+        return redirect(url_for(HOME_ENDPOINT))
         
     form = LoginForm()
     if form.validate_on_submit():
@@ -102,7 +129,7 @@ def login():
                 remaining = user.locked_until - datetime.utcnow()
                 minutes, seconds = divmod(int(remaining.total_seconds()), 60)
                 flash(f'Tu cuenta está bloqueada. Intenta nuevamente en {minutes} minutos y {seconds} segundos.', 'error')
-                return render_template('auth/login.html', form=form)
+                return render_template(LOGIN_TEMPLATE, form=form)
             """
             
             if check_password_hash(user.password_hash, password):
@@ -117,7 +144,7 @@ def login():
                 
                 if user.is_first_login:
                     return redirect(url_for('auth.change_password'))
-                return redirect(url_for('views.home'))
+                return redirect(url_for(HOME_ENDPOINT))
             else:
                 # Comentamos temporalmente el sistema de bloqueo
                 
@@ -130,31 +157,31 @@ def login():
                     user.locked_until = datetime.utcnow() + timedelta(minutes=15)
                     db.session.commit()
                     flash('Demasiados intentos fallidos. Tu cuenta está bloqueada por 15 minutos.', 'error')
-                    return render_template('auth/login.html', form=form)
+                    return render_template(LOGIN_TEMPLATE, form=form)
                 elif user.login_attempts >= 4:
                     user.locked_until = datetime.utcnow() + timedelta(minutes=5)
                     db.session.commit()
                     flash('Demasiados intentos fallidos. Tu cuenta está bloqueada por 5 minutos.', 'error')
-                    return render_template('auth/login.html', form=form)
+                    return render_template(LOGIN_TEMPLATE, form=form)
                 elif user.login_attempts >= 2:
                     user.locked_until = datetime.utcnow() + timedelta(minutes=3)
                     db.session.commit()
                     flash('Demasiados intentos fallidos. Tu cuenta está bloqueada por 3 minutos.', 'error')
-                    return render_template('auth/login.html', form=form)
+                    return render_template(LOGIN_TEMPLATE, form=form)
                 
                 db.session.commit()
                 flash('Contraseña incorrecta. Por favor, intenta nuevamente.', 'error')
         else:
             flash('El email no está registrado.', 'error')
             
-    return render_template('auth/login.html', form=form)
+    return render_template(LOGIN_TEMPLATE, form=form)
 
 
 @auth.route('/logout')
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for('views.home'))
+    return redirect(url_for(HOME_ENDPOINT))
 
 
 @auth.route('/profile/<int:customer_id>')
@@ -163,7 +190,7 @@ def profile(customer_id):
     customer = Customer.query.get(customer_id)
     if not customer:
         flash('El usuario no existe.', 'danger')
-        return redirect(url_for('views.home'))
+        return redirect(url_for(HOME_ENDPOINT))
     return render_template('profile.html', customer=customer)
 
 
@@ -172,7 +199,7 @@ def profile(customer_id):
 def change_password():
     if current_user.role != 'super_admin':
         flash('No tienes permiso para realizar esta acción.', 'danger')
-        return redirect(url_for('views.home'))
+        return redirect(url_for(HOME_ENDPOINT))
     
     form = ChangePasswordForm()
     
@@ -183,7 +210,7 @@ def change_password():
             current_user.is_first_login = False
             db.session.commit()
             flash('Contraseña actualizada exitosamente.', 'success')
-            return redirect(url_for('views.home'))
+            return redirect(url_for(HOME_ENDPOINT))
         else:
             flash('Contraseña actual incorrecta.', 'error')
     
@@ -210,7 +237,7 @@ Si no solicitaste este cambio, ignora este mensaje.
 '''
             mail.send(msg)
             flash('Se ha enviado un correo con instrucciones para restablecer tu contraseña.', 'info')
-            return redirect(url_for('auth.login'))
+            return redirect(url_for(LOGIN_ENDPOINT))
         
         flash('No se encontró ninguna cuenta con ese correo electrónico.', 'error')
     return render_template('auth/forgot_password.html')
@@ -229,7 +256,7 @@ def reset_password(token):
         user.password = form.password.data
         db.session.commit()
         flash('Tu contraseña ha sido actualizada.', 'success')
-        return redirect(url_for('auth.login'))
+        return redirect(url_for(LOGIN_ENDPOINT))
     
     return render_template('auth/reset_password.html', form=form)
 
@@ -256,7 +283,7 @@ def edit_profile():
         
         db.session.commit()
         flash('Perfil actualizado exitosamente.', 'success')
-        return redirect(url_for('views.home'))
+        return redirect(url_for(HOME_ENDPOINT))
     
     # Pre-llenar el formulario con los datos actuales
     form.username.data = current_user.username
@@ -331,7 +358,7 @@ def reset_admin_password():
             session.pop('recovery_email', None)
             
             flash('Contraseña actualizada exitosamente.', 'success')
-            return redirect(url_for('auth.login'))
+            return redirect(url_for(LOGIN_ENDPOINT))
     
     return render_template('auth/reset_admin_password.html')
 
