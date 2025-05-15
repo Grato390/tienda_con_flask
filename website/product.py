@@ -5,7 +5,7 @@ from .models import Product, Category
 from . import db
 import os
 from werkzeug.utils import secure_filename
-
+PRODUCT_PL = 'product.product_list'
 product = Blueprint('product', __name__, 
                     template_folder='templates/product',
                     url_prefix='/product')
@@ -83,7 +83,7 @@ def add_product():
         db.session.add(new_product)
         db.session.commit()
         flash('Producto agregado exitosamente', 'success')
-        return redirect(url_for('product.product_list'))
+        return redirect(url_for(PRODUCT_PL))
     
     return render_template('product/add.html', categories=categories)
 
@@ -113,7 +113,7 @@ def edit_product(id):
         
         db.session.commit()
         flash('Producto actualizado exitosamente', 'success')
-        return redirect(url_for('product.product_list'))
+        return redirect(url_for(PRODUCT_PL))
     
     return render_template('product/edit.html', product=product, categories=categories)
 
@@ -135,7 +135,7 @@ def delete_product(id):
         except Exception as e:
             print('Error al eliminar:', e)
             flash('Error al eliminar el producto', 'error')
-        return redirect(url_for('product.product_list'))
+        return redirect(url_for(PRODUCT_PL))
 
 @product.route('/detail/<int:id>')
 def product_detail(id):
@@ -181,5 +181,3 @@ def category_products(category_id):
                          products=products,
                          search_query=search_query)
 
-# Export the blueprint with the correct name
-product = product

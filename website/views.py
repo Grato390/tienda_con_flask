@@ -10,12 +10,12 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, TextAreaField
 from wtforms.validators import DataRequired
 from datetime import datetime
-
+import logging
 
 views = Blueprint('views', __name__)
-
+logging.basicConfig(level=logging.ERROR)
 API_PUBLISHABLE_KEY = 'YOUR_PUBLISHABLE_KEY'
-
+MESSAGES_NO_PERMIT = 'No tienes permisos para realizar esta acción.'
 API_TOKEN = 'YOUR_API_TOKEN'
 
 
@@ -358,7 +358,7 @@ def search():
 @login_required
 def add_product():
     if not current_user.is_admin:
-        flash('No tienes permisos para realizar esta acción.', 'error')
+        flash(MESSAGES_NO_PERMIT, 'error')
         return redirect(url_for('views.home'))
     
     form = ShopItemsForm()
@@ -466,7 +466,7 @@ def list_products():
 @login_required
 def delete_item(item_id):
     if not current_user.is_admin:
-        flash('No tienes permisos para realizar esta acción.', 'error')
+        flash(MESSAGES_NO_PERMIT, 'error')
         return redirect(url_for('views.home'))
         
     try:
@@ -765,8 +765,10 @@ def update_profile():
         
         db.session.commit()
         flash('Perfil actualizado exitosamente', 'success')
+    # En el bloque except
     except Exception as e:
         db.session.rollback()
+        logging.error(f'Error al actualizar el perfil: {e}')
         flash('Error al actualizar el perfil', 'error')
         
     return redirect(url_for('views.profile'))
@@ -797,7 +799,7 @@ def admin():
 @login_required
 def admin_add_user():
     if not current_user.is_admin:
-        flash('No tienes permisos para realizar esta acción.', 'error')
+        flash(MESSAGES_NO_PERMIT, 'error')
         return redirect(url_for('views.home'))
 
     if request.method == 'POST':
@@ -825,7 +827,7 @@ def admin_add_user():
 @login_required
 def admin_add_product():
     if not current_user.is_admin:
-        flash('No tienes permisos para realizar esta acción.', 'error')
+        flash(MESSAGES_NO_PERMIT, 'error')
         return redirect(url_for('views.home'))
 
     if request.method == 'POST':
@@ -860,7 +862,7 @@ def admin_add_product():
 @login_required
 def update_settings():
     if not current_user.is_admin:
-        flash('No tienes permisos para realizar esta acción.', 'error')
+        flash(MESSAGES_NO_PERMIT, 'error')
         return redirect(url_for('views.home'))
 
     if request.method == 'POST':
@@ -887,12 +889,7 @@ def about():
 
 @views.route('/contact', methods=['GET', 'POST'])
 def contact():
-    if request.method == 'POST':
-        name = request.form.get('name')
-        email = request.form.get('email')
-        subject = request.form.get('subject')
-        message = request.form.get('message')
-        
+    if request.method == 'POST':        
         # Aquí podrías agregar la lógica para enviar el email
         flash('Mensaje enviado exitosamente', 'success')
         return redirect(url_for('views.contact'))

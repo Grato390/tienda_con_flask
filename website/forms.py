@@ -4,11 +4,15 @@ from wtforms.validators import DataRequired, length, NumberRange, Email, EqualTo
 from flask_wtf.file import FileField, FileRequired
 import re
 
-
+MESSAGE_CONTRA_MENOR_8 = 'La contraseña debe tener al menos 8 caracteres'
+NOM_USER = 'Nombre de Usuario'
+CONFIRM_CONTRA = 'Confirmar Contraseña'
+PASSWO = 'Contraseña'
+MESSAGE_CONTR_COINCIDIR = 'Las contraseñas deben coincidir'
 def validate_password_strength(form, field):
     password = field.data
     if len(password) < 8:
-        raise ValidationError('La contraseña debe tener al menos 8 caracteres')
+        raise ValidationError(MESSAGE_CONTRA_MENOR_8)
     if not re.search(r'[A-Z]', password):
         raise ValidationError('La contraseña debe contener al menos una letra mayúscula')
     if not re.search(r'[a-z]', password):
@@ -19,15 +23,15 @@ def validate_password_strength(form, field):
 
 class SignUpForm(FlaskForm):
     email = EmailField('Email', validators=[DataRequired(), Email()])
-    username = StringField('Nombre de Usuario', validators=[DataRequired(), length(min=2)])
-    password1 = PasswordField('Contraseña', validators=[DataRequired(), validate_password_strength])
-    password2 = PasswordField('Confirmar Contraseña', validators=[DataRequired(), EqualTo('password1')])
+    username = StringField(NOM_USER, validators=[DataRequired(), length(min=2)])
+    password1 = PasswordField(PASSWO, validators=[DataRequired(), validate_password_strength])
+    password2 = PasswordField(CONFIRM_CONTRA, validators=[DataRequired(), EqualTo('password1')])
     submit = SubmitField('Registrarse')
 
 
 class LoginForm(FlaskForm):
     email = EmailField('Email', validators=[DataRequired(), Email()])
-    password = PasswordField('Contraseña', validators=[DataRequired()])
+    password = PasswordField(PASSWO, validators=[DataRequired()])
     remember = BooleanField('Recordarme')
     submit = SubmitField('Iniciar Sesión')
 
@@ -102,34 +106,34 @@ class OrderForm(FlaskForm):
 class ResetPasswordForm(FlaskForm):
     password = PasswordField('Nueva Contraseña', validators=[
         DataRequired(),
-        Length(min=8, message='La contraseña debe tener al menos 8 caracteres'),
+        Length(min=8, message=MESSAGE_CONTRA_MENOR_8),
         validate_password_strength
     ])
-    confirm_password = PasswordField('Confirmar Contraseña', validators=[
+    confirm_password = PasswordField(CONFIRM_CONTRA, validators=[
         DataRequired(),
-        EqualTo('password', message='Las contraseñas deben coincidir')
+        EqualTo('password', message=MESSAGE_CONTR_COINCIDIR)
     ])
     submit = SubmitField('Restablecer Contraseña')
 
 
 class EditProfileForm(FlaskForm):
-    username = StringField('Nombre de Usuario', validators=[DataRequired()])
+    username = StringField(NOM_USER, validators=[DataRequired()])
     email = StringField('Email', validators=[DataRequired(), Email()])
     phone_number = StringField('Número de Teléfono')
     address = StringField('Dirección')
     security_key = PasswordField('Clave de Seguridad', validators=[DataRequired()])
     new_password = PasswordField('Nueva Contraseña (opcional)', validators=[
-        Length(min=8, message='La contraseña debe tener al menos 8 caracteres'),
+        Length(min=8, message=MESSAGE_CONTRA_MENOR_8),
         validate_password_strength
     ])
     confirm_password = PasswordField('Confirmar Nueva Contraseña', validators=[
-        EqualTo('new_password', message='Las contraseñas deben coincidir')
+        EqualTo('new_password', message=MESSAGE_CONTR_COINCIDIR)
     ])
     submit = SubmitField('Actualizar Perfil')
 
 
 class CreateAdminForm(FlaskForm):
-    username = StringField('Nombre de Usuario', validators=[
+    username = StringField(NOM_USER, validators=[
         DataRequired(),
         Length(min=2, max=150, message='El nombre de usuario debe tener entre 2 y 150 caracteres')
     ])
@@ -137,14 +141,14 @@ class CreateAdminForm(FlaskForm):
         DataRequired(),
         Email(message='Por favor, ingrese un correo electrónico válido')
     ])
-    password = PasswordField('Contraseña', validators=[
+    password = PasswordField(PASSWO, validators=[
         DataRequired(),
         validate_password_strength,
-        Length(min=8, message='La contraseña debe tener al menos 8 caracteres')
+        Length(min=8, message=MESSAGE_CONTRA_MENOR_8)
     ])
-    confirm_password = PasswordField('Confirmar Contraseña', validators=[
+    confirm_password = PasswordField(CONFIRM_CONTRA, validators=[
         DataRequired(),
-        EqualTo('password', message='Las contraseñas deben coincidir')
+        EqualTo('password', message=MESSAGE_CONTR_COINCIDIR)
     ])
     role = SelectField('Rol', choices=[
         ('admin', 'Administrador'),

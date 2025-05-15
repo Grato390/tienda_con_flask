@@ -7,6 +7,7 @@ from werkzeug.utils import secure_filename
 from .models import Product, Order, Customer
 from . import db
 from werkzeug.security import generate_password_hash
+from datetime import datetime, timezone
 
 admin = Blueprint('admin', __name__)
 
@@ -168,8 +169,8 @@ def create_admin():
             role=form.role.data,  # Usar el rol seleccionado en el formulario
             is_first_login=True,
             force_password_change=form.force_password_change.data,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
         )
 
         # Configurar preguntas de seguridad
@@ -221,7 +222,7 @@ def update_item(item_id):
                 file.save(file_path)
                 item_to_update.product_picture = file_path
 
-            item_to_update.updated_at = datetime.utcnow()
+            item_to_update.updated_at = datetime.now(timezone.utc)
 
             db.session.commit()
             flash(f'Producto "{item_to_update.product_name}" actualizado exitosamente', 'success')

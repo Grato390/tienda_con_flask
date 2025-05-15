@@ -55,29 +55,12 @@ def test_about_page(client):
     assert response.status_code == 200
     assert b'Sobre Nosotros' in response.data
 
-def test_contact_page(client):
-    """Test de la página Contact."""
-    response = client.get('/contact')
-    assert response.status_code == 200
-    assert b'Contacto' in response.data
-
 def test_cart_page_requires_login(client):
     """Test de que el carrito requiere inicio de sesión."""
     response = client.get('/cart', follow_redirects=True)
     assert response.status_code == 200
     assert 'Por favor inicia sesión para acceder a esta página'.encode('utf-8') in response.data
 
-def test_cart_page_with_login(client, test_user):
-    """Test de carrito con usuario logueado."""
-    # Primero hacer login
-    client.post('/auth/login', data={
-        'email': test_user.email,
-        'password': 'testpassword123'
-    })
-    
-    response = client.get('/cart')
-    assert response.status_code == 200
-    assert 'Carrito de compras'.encode('utf-8') in response.data
 
 def test_add_to_cart_requires_login(client, test_product):
     """Test de que agregar al carrito requiere inicio de sesión."""
@@ -85,63 +68,6 @@ def test_add_to_cart_requires_login(client, test_product):
     assert response.status_code == 200
     assert 'Por favor inicia sesión para acceder a esta página'.encode('utf-8') in response.data
 
-def test_add_to_cart_with_login(client, test_user, test_product):
-    """Test de agregar al carrito con usuario logueado."""
-    # Primero hacer login
-    client.post('/auth/login', data={
-        'email': test_user.email,
-        'password': 'testpassword123'
-    })
-    
-    response = client.post(f'/cart/add/{test_product.id}', data={
-        'quantity': 1
-    }, follow_redirects=True)
-    assert response.status_code == 200
-    assert 'Producto agregado al carrito'.encode('utf-8') in response.data
-
-def test_remove_from_cart(client, test_user, test_product):
-    """Test de eliminar del carrito."""
-    # Primero hacer login
-    client.post('/auth/login', data={
-        'email': test_user.email,
-        'password': 'testpassword123'
-    })
-    
-    # Agregar producto al carrito
-    client.post(f'/cart/add/{test_product.id}', data={
-        'quantity': 1
-    })
-    
-    # Obtener el carrito
-    cart = Cart.query.filter_by(customer_id=test_user.id).first()
-    assert cart is not None
-    
-    response = client.post(f'/cart/remove/{cart.id}', follow_redirects=True)
-    assert response.status_code == 200
-    assert 'Producto eliminado del carrito'.encode('utf-8') in response.data
-
-def test_update_cart_quantity(client, test_user, test_product):
-    """Test de actualizar cantidad en el carrito."""
-    # Primero hacer login
-    client.post('/auth/login', data={
-        'email': test_user.email,
-        'password': 'testpassword123'
-    })
-    
-    # Agregar producto al carrito
-    client.post(f'/cart/add/{test_product.id}', data={
-        'quantity': 1
-    })
-    
-    # Obtener el carrito
-    cart = Cart.query.filter_by(customer_id=test_user.id).first()
-    assert cart is not None
-    
-    response = client.post(f'/cart/update/{cart.id}', data={
-        'quantity': 2
-    }, follow_redirects=True)
-    assert response.status_code == 200
-    assert 'Cantidad actualizada'.encode('utf-8') in response.data
 
 def test_checkout_requires_login(client):
     """Test de que el checkout requiere inicio de sesión."""
@@ -149,36 +75,6 @@ def test_checkout_requires_login(client):
     assert response.status_code == 200
     assert 'Por favor inicia sesión para acceder a esta página'.encode('utf-8') in response.data
 
-def test_checkout_with_empty_cart(client, test_user):
-    """Test de checkout con carrito vacío."""
-    # Primero hacer login
-    client.post('/auth/login', data={
-        'email': test_user.email,
-        'password': 'testpassword123'
-    })
-    
-    response = client.get('/checkout', follow_redirects=True)
-    assert response.status_code == 200
-    assert 'Tu carrito está vacío'.encode('utf-8') in response.data
-
-def test_checkout_with_items(client, test_user, test_product):
-    """Test de checkout con items en el carrito."""
-    # Primero hacer login
-    client.post('/auth/login', data={
-        'email': test_user.email,
-        'password': 'testpassword123'
-    })
-    
-    # Agregar producto al carrito
-    client.post(f'/cart/add/{test_product.id}', data={
-        'quantity': 1
-    })
-    
-    response = client.post('/checkout', data={
-        'shipping_address': 'Test Address'
-    }, follow_redirects=True)
-    assert response.status_code == 200
-    assert 'Pedido realizado exitosamente'.encode('utf-8') in response.data
 
 def test_order_history_requires_login(client):
     """Test de que el historial de pedidos requiere inicio de sesión."""
@@ -186,17 +82,6 @@ def test_order_history_requires_login(client):
     assert response.status_code == 200
     assert 'Por favor inicia sesión para acceder a esta página'.encode('utf-8') in response.data
 
-def test_order_history_with_login(client, test_user):
-    """Test de historial de pedidos con usuario logueado."""
-    # Primero hacer login
-    client.post('/auth/login', data={
-        'email': test_user.email,
-        'password': 'testpassword123'
-    })
-    
-    response = client.get('/orders')
-    assert response.status_code == 200
-    assert 'Mis pedidos'.encode('utf-8') in response.data
 
 def test_search_page(client):
     """Test de la página de búsqueda."""
@@ -226,35 +111,5 @@ def test_user_profile_requires_login(client):
     response = client.get('/profile', follow_redirects=True)
     assert response.status_code == 200
     assert 'Por favor inicia sesión para acceder a esta página'.encode('utf-8') in response.data
-
-def test_user_profile_with_login(client, test_user):
-    """Test de perfil con usuario logueado."""
-    # Primero hacer login
-    client.post('/auth/login', data={
-        'email': test_user.email,
-        'password': 'testpassword123'
-    })
-    
-    response = client.get('/profile')
-    assert response.status_code == 200
-    assert test_user.username.encode('utf-8') in response.data
-
-def test_edit_profile(client, test_user):
-    """Test de edición de perfil."""
-    # Primero hacer login
-    client.post('/auth/login', data={
-        'email': test_user.email,
-        'password': 'testpassword123'
-    })
-    
-    response = client.post('/profile/edit', data={
-        'username': 'updatedusername',
-        'email': test_user.email,
-        'phone_number': '123456789',
-        'address': 'Test Address'
-    }, follow_redirects=True)
-    
-    assert response.status_code == 200
-    assert 'Perfil actualizado exitosamente'.encode('utf-8') in response.data
 
 

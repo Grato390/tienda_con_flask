@@ -3,7 +3,7 @@ from flask_login import UserMixin
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 import json
-
+CUSTOM_ID = 'customer.id'
 
 class Customer(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
@@ -98,7 +98,7 @@ class Product(db.Model):
     flash_sale = db.Column(db.Boolean, default=False)
     product_picture = db.Column(db.String(200))
     category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
-    created_by = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey(CUSTOM_ID), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -114,7 +114,7 @@ class Product(db.Model):
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey(CUSTOM_ID), nullable=False)
     status = db.Column(db.String(20), default='pending')
     total = db.Column(db.Float, default=0.0)
     shipping_address = db.Column(db.String(200))
@@ -140,7 +140,7 @@ class OrderItem(db.Model):
 
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey(CUSTOM_ID), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
     total_price = db.Column(db.Float, nullable=False)

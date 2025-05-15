@@ -26,7 +26,7 @@
                 {% if product.product_picture %}
                 <img src="{{ product.product_picture }}" class="card-img-top" alt="{{ product.product_name }}">
                 {% else %}
-                <img src="{{ url_for('static', filename='images/default.jpg') }}" class="card-img-top" alt="Imagen por defecto">
+                <img src="{{ url_for('static', filename='images/default.jpg') }}" class="card-img-top" alt="por defecto">
                 {% endif %}
                 <div class="card-body">
                     <h5 class="card-title">{{ product.product_name }}</h5>

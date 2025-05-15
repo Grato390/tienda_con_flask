@@ -14,6 +14,8 @@ from datetime import datetime, timedelta
 import os
 import random
 import string
+import secrets
+from datetime import datetime, timezone
 
 
 auth = Blueprint('auth', __name__)
@@ -34,19 +36,19 @@ def generate_secure_password(length):
         raise ValueError("La longitud de la contraseña debe ser al menos 4 para incluir todos los tipos de caracteres.")
 
     # Asegúrate de incluir al menos un carácter de cada tipo
-    lower = random.choice(string.ascii_lowercase)
-    upper = random.choice(string.ascii_uppercase)
-    digit = random.choice(string.digits)
-    special = random.choice(string.punctuation)
+    lower = secrets.choice(string.ascii_lowercase)
+    upper = secrets.choice(string.ascii_uppercase)
+    digit = secrets.choice(string.digits)
+    special = secrets.choice(string.punctuation)
 
     # Rellena el resto de la contraseña con caracteres aleatorios
     remaining_length = length - 4
     all_characters = string.ascii_letters + string.digits + string.punctuation
-    remaining = ''.join(random.choices(all_characters, k=remaining_length))
+    remaining = ''.join(secrets.choices(all_characters) for _ in range(remaining_length))
 
     # Mezcla los caracteres para evitar patrones predecibles
     password = list(lower + upper + digit + special + remaining)
-    random.shuffle(password)
+    secrets.SystemRandom().shuffle(password)
 
     return ''.join(password)
 
@@ -90,7 +92,7 @@ def login():
         next_page = request.args.get('next')
         if next_page and next_page.startswith('/'):
             return redirect(next_page)
-        return redirect(url_for('views.home'))
+        return redirect(url_for(HOME_ENDPOINT))
         
     form = LoginForm()
     if form.validate_on_submit():
@@ -104,8 +106,8 @@ def login():
             if check_password_hash(user.password_hash, password):
                 # Reiniciar intentos de inicio de sesión
                 user.login_attempts = 0
-                user.last_attempt = datetime.utcnow()
-                user.last_login = datetime.utcnow()
+                user.last_attempt = datetime.now(timezone.utc)
+                user.last_login = datetime.now(timezone.utc)
                 db.session.commit()
                 
                 login_user(user, remember=remember)
@@ -117,11 +119,11 @@ def login():
                     
                 if user.is_first_login:
                     return redirect(url_for('auth.change_password'))
-                return redirect(url_for('views.home'))
+                return redirect(url_for(HOME_ENDPOINT))
             else:
                 # Incrementar intentos fallidos
                 user.login_attempts += 1
-                user.last_attempt = datetime.utcnow()
+                user.last_attempt = datetime.now(timezone.utc)
                 db.session.commit()
                 flash('Contraseña incorrecta', 'error')
         else:
@@ -135,13 +137,13 @@ def login():
 def logout():
     logout_user()
     flash('Has cerrado sesión exitosamente', 'success')
-    return redirect(url_for('auth.login'))
+    return redirect(url_for(LOGIN_ENDPOINT))
 
 
 @auth.route('/sign-up', methods=['GET', 'POST'])
 def sign_up():
     if current_user.is_authenticated:
-        return redirect(url_for('views.home'))
+        return redirect(url_for(HOME_ENDPOINT))
         
     form = SignUpForm()
     if form.validate_on_submit():
@@ -164,7 +166,7 @@ def sign_up():
         db.session.commit()
         
         flash('Cuenta creada exitosamente', 'success')
-        return redirect(url_for('auth.login'))
+        return redirect(url_for(LOGIN_ENDPOINT))
         
     return render_template('auth/sign_up.html', form=form)
 

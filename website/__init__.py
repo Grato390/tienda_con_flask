@@ -9,6 +9,7 @@ import secrets
 import string
 from dotenv import load_dotenv
 import random
+import secrets
 load_dotenv()
 
 db = SQLAlchemy()
@@ -24,7 +25,7 @@ def generate_secure_password(length=12):
     """Genera una contraseña segura con la longitud especificada."""
     characters = string.ascii_letters + string.digits + string.punctuation
     while True:
-        password = ''.join(random.choice(characters) for _ in range(length))
+        password = ''.join(secrets.choice(characters) for _ in range(length))
         # Verificar que la contraseña cumple con los requisitos mínimos
         if (any(c.islower() for c in password) and
             any(c.isupper() for c in password) and
