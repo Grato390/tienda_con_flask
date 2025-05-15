@@ -84,34 +84,13 @@ class ChangePasswordForm(FlaskForm):
     submit = SubmitField('Cambiar Contraseña')
 
 
-@auth.route('/sign-up', methods=['GET', 'POST'])
-def sign_up():
-    form = SignUpForm()
-    if form.validate_on_submit():
-        email = form.email.data
-        username = form.username.data
-        password1 = form.password1.data
-        password2 = form.password2.data
-
-        user = Customer.query.filter_by(email=email).first()
-        if user:
-            flash('El email ya existe.', category='error')
-        else:
-            new_user = Customer(email=email, username=username, role='customer')
-            new_user.password = password1
-            db.session.add(new_user)
-            db.session.commit()
-            login_user(new_user, remember=True)
-            flash('¡Cuenta creada exitosamente!', category='success')
-            return redirect(url_for(HOME_ENDPOINT))
-
-    return render_template('auth/sign_up.html', form=form)
-
-
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for(HOME_ENDPOINT))
+        next_page = request.args.get('next')
+        if next_page and next_page.startswith('/'):
+            return redirect(next_page)
+        return redirect(url_for('views.home'))
         
     form = LoginForm()
     if form.validate_on_submit():
@@ -122,16 +101,6 @@ def login():
         user = Customer.query.filter_by(email=email).first()
         
         if user:
-            # Comentamos temporalmente la verificación de bloqueo
-            """
-            # Verificar si la cuenta está bloqueada
-            if user.locked_until and user.locked_until > datetime.utcnow():
-                remaining = user.locked_until - datetime.utcnow()
-                minutes, seconds = divmod(int(remaining.total_seconds()), 60)
-                flash(f'Tu cuenta está bloqueada. Intenta nuevamente en {minutes} minutos y {seconds} segundos.', 'error')
-                return render_template(LOGIN_TEMPLATE, form=form)
-            """
-            
             if check_password_hash(user.password_hash, password):
                 # Reiniciar intentos de inicio de sesión
                 user.login_attempts = 0
@@ -140,48 +109,64 @@ def login():
                 db.session.commit()
                 
                 login_user(user, remember=remember)
-                flash('¡Inicio de sesión exitoso!', 'success')
+                flash('Inicio de sesión exitoso', 'success')
                 
+                next_page = request.args.get('next')
+                if next_page and next_page.startswith('/'):
+                    return redirect(next_page)
+                    
                 if user.is_first_login:
                     return redirect(url_for('auth.change_password'))
-                return redirect(url_for(HOME_ENDPOINT))
+                return redirect(url_for('views.home'))
             else:
-                # Comentamos temporalmente el sistema de bloqueo
-                
                 # Incrementar intentos fallidos
                 user.login_attempts += 1
                 user.last_attempt = datetime.utcnow()
-                
-                # Aplicar bloqueos progresivos
-                if user.login_attempts >= 6:
-                    user.locked_until = datetime.utcnow() + timedelta(minutes=15)
-                    db.session.commit()
-                    flash('Demasiados intentos fallidos. Tu cuenta está bloqueada por 15 minutos.', 'error')
-                    return render_template(LOGIN_TEMPLATE, form=form)
-                elif user.login_attempts >= 4:
-                    user.locked_until = datetime.utcnow() + timedelta(minutes=5)
-                    db.session.commit()
-                    flash('Demasiados intentos fallidos. Tu cuenta está bloqueada por 5 minutos.', 'error')
-                    return render_template(LOGIN_TEMPLATE, form=form)
-                elif user.login_attempts >= 2:
-                    user.locked_until = datetime.utcnow() + timedelta(minutes=3)
-                    db.session.commit()
-                    flash('Demasiados intentos fallidos. Tu cuenta está bloqueada por 3 minutos.', 'error')
-                    return render_template(LOGIN_TEMPLATE, form=form)
-                
                 db.session.commit()
-                flash('Contraseña incorrecta. Por favor, intenta nuevamente.', 'error')
+                flash('Contraseña incorrecta', 'error')
         else:
-            flash('El email no está registrado.', 'error')
+            flash('El email no existe', 'error')
             
-    return render_template(LOGIN_TEMPLATE, form=form)
+    return render_template('auth/login.html', form=form)
 
 
 @auth.route('/logout')
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for(HOME_ENDPOINT))
+    flash('Has cerrado sesión exitosamente', 'success')
+    return redirect(url_for('auth.login'))
+
+
+@auth.route('/sign-up', methods=['GET', 'POST'])
+def sign_up():
+    if current_user.is_authenticated:
+        return redirect(url_for('views.home'))
+        
+    form = SignUpForm()
+    if form.validate_on_submit():
+        email = form.email.data
+        username = form.username.data
+        password = form.password1.data
+        
+        user_exists = Customer.query.filter_by(email=email).first()
+        if user_exists:
+            flash('El email ya está registrado', 'error')
+            return redirect(url_for('auth.sign_up'))
+            
+        new_user = Customer(
+            email=email,
+            username=username,
+            role='customer'
+        )
+        new_user.password = password
+        db.session.add(new_user)
+        db.session.commit()
+        
+        flash('Cuenta creada exitosamente', 'success')
+        return redirect(url_for('auth.login'))
+        
+    return render_template('auth/sign_up.html', form=form)
 
 
 @auth.route('/profile/<int:customer_id>')

@@ -384,7 +384,7 @@
         
         <!-- Barra de búsqueda -->
         <div class="search-container mb-3">
-            <form action="{{ url_for('product_blueprint.category_products', category_id=category.id) }}" method="GET" class="search-form">
+            <form action="{{ url_for('product.category_products', category_id=category.id) }}" method="GET" class="search-form">
                 <div class="input-group">
                     <input type="text" 
                            name="q" 
@@ -402,7 +402,7 @@
             <div class="mt-2">
                 <small class="text-muted">
                     Buscando en {{ category.name }}: "{{ request.args.get('q') }}"
-                    <a href="{{ url_for('product_blueprint.category_products', category_id=category.id) }}" class="text-danger ms-2">
+                    <a href="{{ url_for('product.category_products', category_id=category.id) }}" class="text-danger ms-2">
                         <i class="fas fa-times"></i> Limpiar
                     </a>
                 </small>
@@ -416,14 +416,14 @@
                 <div class="mb-2 mb-md-0">
                     <span class="fw-bold me-2">Ordenar por:</span>
                     <div class="btn-group btn-group-sm" role="group">
-                        <a href="{{ url_for('product_blueprint.category_products', category_id=category.id, q=request.args.get('q', ''), sort='name', order='asc' if sort != 'name' or order == 'desc' else 'desc') }}" 
+                        <a href="{{ url_for('product.category_products', category_id=category.id, q=request.args.get('q', ''), sort='name', order='asc' if sort != 'name' or order == 'desc' else 'desc') }}" 
                            class="btn btn-outline-secondary {% if sort == 'name' %}active{% endif %}">
                             Nombre 
                             {% if sort == 'name' %}
                                 <i class="fas fa-sort-{{ 'up' if order == 'asc' else 'down' }} ms-1"></i>
                             {% endif %}
                         </a>
-                        <a href="{{ url_for('product_blueprint.category_products', category_id=category.id, q=request.args.get('q', ''), sort='price', order='asc' if sort != 'price' or order == 'desc' else 'desc') }}" 
+                        <a href="{{ url_for('product.category_products', category_id=category.id, q=request.args.get('q', ''), sort='price', order='asc' if sort != 'price' or order == 'desc' else 'desc') }}" 
                            class="btn btn-outline-secondary {% if sort == 'price' %}active{% endif %}">
                             Precio
                             {% if sort == 'price' %}
@@ -535,7 +535,7 @@
             {% if products.has_prev %}
                 <li class="page-item">
                     <a class="page-link" 
-                       href="{{ url_for('product_blueprint.category_products', category_id=category.id, page=products.prev_num, 
+                       href="{{ url_for('product.category_products', category_id=category.id, page=products.prev_num, 
                                 q=request.args.get('q', ''), sort=sort, order=order) }}" 
                        aria-label="Anterior">
                         <span aria-hidden="true">&laquo;</span>
@@ -552,7 +552,7 @@
                     {% if page_num != products.page %}
                         <li class="page-item">
                             <a class="page-link" 
-                               href="{{ url_for('product_blueprint.category_products', category_id=category.id, page=page_num, 
+                               href="{{ url_for('product.category_products', category_id=category.id, page=page_num, 
                                         q=request.args.get('q', ''), sort=sort, order=order) }}">
                                 {{ page_num }}
                             </a>
@@ -572,7 +572,7 @@
             {% if products.has_next %}
                 <li class="page-item">
                     <a class="page-link" 
-                       href="{{ url_for('product_blueprint.category_products', category_id=category.id, page=products.next_num, 
+                       href="{{ url_for('product.category_products', category_id=category.id, page=products.next_num, 
                                 q=request.args.get('q', ''), sort=sort, order=order) }}" 
                        aria-label="Siguiente">
                         <span aria-hidden="true">&raquo;</span>
@@ -596,7 +596,7 @@
             <h5 class="alert-heading fw-bold mb-1">No se encontraron productos</h5>
             {% if request.args.get('q') %}
                 <p class="mb-0">No hay productos que coincidan con "{{ request.args.get('q') }}" en {{ category.name }}.</p>
-                <a href="{{ url_for('product_blueprint.category_products', category_id=category.id) }}" class="alert-link">
+                <a href="{{ url_for('product.category_products', category_id=category.id) }}" class="alert-link">
                     Ver todos los productos de {{ category.name }}
                 </a>
             {% else %}

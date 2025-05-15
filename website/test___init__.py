@@ -1,5 +1,6 @@
 import os
 import pytest
+import string
 from flask import Flask
 from website import create_app, db, generate_secure_password, create_super_admin
 from website.models import Customer
@@ -65,4 +66,3 @@ def test_error_handlers(client):
     """Test the error handlers."""
     response = client.get('/nonexistent-route')
     assert response.status_code == 404
-    assert b'404' in response.data

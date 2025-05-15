@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Mi perfil{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Mi perfil</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('views.update_profile') }}">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Nombre de usuario</label>
+                            <input type="text" class="form-control" id="username" name="username" 
+                                   value="{{ current_user.username }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Correo electrónico</label>
+                            <input type="email" class="form-control" id="email" name="email" 
+                                   value="{{ current_user.email }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">Teléfono</label>
+                            <input type="tel" class="form-control" id="phone" name="phone" 
+                                   value="{{ current_user.phone }}">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="address" class="form-label">Dirección</label>
+                            <textarea class="form-control" id="address" name="address" rows="3">{{ current_user.address }}</textarea>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Guardar cambios
+                            </button>
+                            <a href="{{ url_for('views.change_password') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-key"></i> Cambiar contraseña
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Información de la cuenta</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Rol:</strong> {{ current_user.role|title }}</p>
+                            <p><strong>Fecha de registro:</strong> {{ current_user.date_created.strftime('%d/%m/%Y') }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Último inicio de sesión:</strong> {{ current_user.last_login.strftime('%d/%m/%Y %H:%M') if current_user.last_login else 'Nunca' }}</p>
+                            <p>
+                                <strong>Estado:</strong>
+                                <span class="badge {% if current_user.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ 'Activo' if current_user.is_active else 'Inactivo' }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

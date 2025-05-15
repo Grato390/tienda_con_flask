@@ -8,6 +8,7 @@ import os
 import secrets
 import string
 from dotenv import load_dotenv
+import random
 load_dotenv()
 
 db = SQLAlchemy()
@@ -20,9 +21,16 @@ ADMIN_SECURITY_KEY = os.environ.get('ADMIN_SECURITY_KEY', 'your-super-secret-key
 
 
 def generate_secure_password(length=12):
-    """Generate a secure random password."""
-    alphabet = string.ascii_letters + string.digits + string.punctuation
-    return ''.join(secrets.choice(alphabet) for _ in range(length))
+    """Genera una contraseña segura con la longitud especificada."""
+    characters = string.ascii_letters + string.digits + string.punctuation
+    while True:
+        password = ''.join(random.choice(characters) for _ in range(length))
+        # Verificar que la contraseña cumple con los requisitos mínimos
+        if (any(c.islower() for c in password) and
+            any(c.isupper() for c in password) and
+            any(c.isdigit() for c in password) and
+            any(c in string.punctuation for c in password)):
+            return password
 
 
 def create_super_admin():
@@ -112,11 +120,12 @@ def create_app():
     def internal_server_error(error):
         return render_template('errors/500.html'), 500
 
+    # Configurar el login manager
     login_manager = LoginManager()
     login_manager.login_view = 'auth.login'
+    login_manager.login_message = 'Por favor inicia sesión para acceder a esta página.'
+    login_manager.login_message_category = 'info'
     login_manager.init_app(app)
-
-    from .models import Customer, Cart, Product, Order, Category
 
     @login_manager.user_loader
     def load_user(id):
@@ -126,13 +135,13 @@ def create_app():
     from .views import views
     from .auth import auth
     from .admin import admin as admin_blueprint
-    from .product import product_blueprint
+    from .product import product
 
     # Registrar blueprints
     app.register_blueprint(views, url_prefix='/')
     app.register_blueprint(auth, url_prefix='/auth')
     app.register_blueprint(admin_blueprint, url_prefix='/admin')
-    app.register_blueprint(product_blueprint, url_prefix='/product')
+    app.register_blueprint(product, url_prefix='/product')
 
     create_database(app)
     

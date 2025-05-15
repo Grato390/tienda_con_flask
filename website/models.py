@@ -38,6 +38,12 @@ class Customer(db.Model, UserMixin):
     def is_super_admin(self):
         return self.role == 'super_admin'
 
+    def set_admin(self, is_admin):
+        self.role = 'admin' if is_admin else 'customer'
+
+    def set_super_admin(self, is_super_admin):
+        self.role = 'super_admin' if is_super_admin else 'customer'
+
     @property
     def password(self):
         raise AttributeError('password is not a readable attribute')
@@ -95,11 +101,11 @@ class Product(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relaciones
+    category = db.relationship('Category', backref=db.backref('products', lazy=True))
     order_items = db.relationship('OrderItem', backref='product', lazy=True, cascade='all, delete-orphan')
     carts = db.relationship('Cart', backref=db.backref('product', lazy=True), cascade='all, delete-orphan')
-    date_added = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # Relación con el usuario que creó el producto
     creator = db.relationship('Customer', backref=db.backref('products_created', lazy=True))
 
     def __str__(self):

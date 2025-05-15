@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Contacto{% endblock %}
+
+{% block body %}
+<div class="container py-5">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <h1 class="text-center mb-4">Contacto</h1>
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('views.contact') }}">
+                        {{ form.csrf_token }}
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Nombre</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="subject" class="form-label">Asunto</label>
+                            <input type="text" class="form-control" id="subject" name="subject" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="message" class="form-label">Mensaje</label>
+                            <textarea class="form-control" id="message" name="message" rows="5" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Enviar Mensaje</button>
+                    </form>
+                    
+                    <hr class="my-4">
+                    
+                    <h2 class="h4 mb-3">Información de Contacto</h2>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><i class="fas fa-envelope me-2"></i> contacto@tienda.com</li>
+                        <li class="mb-2"><i class="fas fa-phone me-2"></i> +123 456 7890</li>
+                        <li class="mb-2"><i class="fas fa-map-marker-alt me-2"></i> Calle Principal 123, Ciudad</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

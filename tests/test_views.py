@@ -1,20 +1,18 @@
 import pytest
-from website import create_app, db
-from website.models import Customer, Product, Category, Cart, Order
-from flask_login import login_user
+from website.models import Customer, Product, Category, Cart, Order, db
+from bs4 import BeautifulSoup
+from flask import url_for
+from flask_login import current_user
 
 @pytest.fixture
 def app():
+    from website import create_app
     app = create_app()
     app.config['TESTING'] = True
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
-    app.config['WTF_CSRF_ENABLED'] = False
-    
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     with app.app_context():
         db.create_all()
         yield app
-        db.session.remove()
-        db.drop_all()
 
 @pytest.fixture
 def client(app):
@@ -23,198 +21,240 @@ def client(app):
 @pytest.fixture
 def logged_in_client(client, app):
     with app.app_context():
-        # Crear un usuario de prueba
         user = Customer(
-            username='testuser',
             email='test@example.com',
-            role='customer'
+            username='testuser'
         )
         user.password = 'password123'
+        user.set_admin(True)
         db.session.add(user)
         db.session.commit()
-        
-        # Loguear al usuario usando el endpoint de login
-        client.post('/auth/login', data={
-            'email': 'test@example.com',
-            'password': 'password123'
-        }, follow_redirects=True)
-        
-        return client
+
+    client.post('/auth/login', data={
+        'email': 'test@example.com',
+        'password': 'password123'
+    })
+    return client
+
+@pytest.fixture(autouse=True)
+def clean_db(app):
+    with app.app_context():
+        db.session.remove()
+        db.drop_all()
+        db.create_all()
 
 def test_home_page(client):
+    """Test de la página principal."""
     response = client.get('/')
     assert response.status_code == 200
+    assert b'Tienda Online' in response.data
 
-def test_profile_page_requires_login(client):
-    response = client.get('/profile')
-    assert response.status_code == 302  # Redirección a login
-
-def test_profile_page_with_login(logged_in_client):
-    response = logged_in_client.get('/profile')
+def test_about_page(client):
+    """Test de la página About."""
+    response = client.get('/about')
     assert response.status_code == 200
+    assert b'Sobre Nosotros' in response.data
 
-def test_admin_page_requires_admin(logged_in_client):
-    response = logged_in_client.get('/admin')
-    assert response.status_code == 302  # Redirección a home
+def test_contact_page(client):
+    """Test de la página Contact."""
+    response = client.get('/contact')
+    assert response.status_code == 200
+    assert b'Contacto' in response.data
 
-def test_update_preferences_requires_login(client):
-    response = client.post('/update_preferences', data={
-        'email_notifications': 'on',
-        'sms_notifications': 'on',
-        'show_profile': 'on'
+def test_cart_page_requires_login(client):
+    """Test de que el carrito requiere inicio de sesión."""
+    response = client.get('/cart', follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Por favor inicia sesión para acceder a esta página'.encode('utf-8') in response.data
+
+def test_cart_page_with_login(client, test_user):
+    """Test de carrito con usuario logueado."""
+    # Primero hacer login
+    client.post('/auth/login', data={
+        'email': test_user.email,
+        'password': 'testpassword123'
     })
-    assert response.status_code == 302  # Redirección a login
-
-def test_add_to_cart_requires_login(client):
-    response = client.get('/add-to-cart/1')
-    assert response.status_code == 302  # Redirect to login
-
-def test_add_to_cart_with_login(logged_in_client, app):
-    with app.app_context():
-        # Crear una categoría primero
-        category = Category(name='Test Category')
-        db.session.add(category)
-        db.session.commit()
-        # Crear un producto
-        product = Product(
-            product_name='Test Product',
-            current_price=10.0,
-            stock_quantity=5,
-            category_id=category.id
-        )
-        db.session.add(product)
-        db.session.commit()
-        # Agregar producto al carrito
-        response = logged_in_client.get(f'/add-to-cart/{product.id}')
-        assert response.status_code == 302  # Redirect back to referrer
-        assert Cart.query.filter_by(product_id=product.id).first() is not None
-
-def test_show_cart_requires_login(client):
+    
     response = client.get('/cart')
-    assert response.status_code == 302  # Redirect to login
+    assert response.status_code == 200
+    assert 'Carrito de compras'.encode('utf-8') in response.data
 
-def test_show_cart_with_login(logged_in_client, app):
-    with app.app_context():
-        # Crear una categoría primero
-        category = Category(name='Test Category')
-        db.session.add(category)
-        db.session.commit()
-        # Crear un producto y agregarlo al carrito
-        product = Product(
-            product_name='Test Product',
-            current_price=10.0,
-            stock_quantity=5,
-            category_id=category.id
-        )
-        db.session.add(product)
-        db.session.commit()
-        cart_item = Cart(
-            product_id=product.id,
-            customer_id=1,
-            quantity=1,
-            total_price=10.0
-        )
-        db.session.add(cart_item)
-        db.session.commit()
-        response = logged_in_client.get('/cart')
-        assert response.status_code == 200
-        assert b'Test Product' in response.data
+def test_add_to_cart_requires_login(client, test_product):
+    """Test de que agregar al carrito requiere inicio de sesión."""
+    response = client.get(f'/add-to-cart/{test_product.id}', follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Por favor inicia sesión para acceder a esta página'.encode('utf-8') in response.data
 
-def test_place_order_requires_login(client):
-    response = client.get('/place-order')
-    assert response.status_code == 302  # Redirect to login
+def test_add_to_cart_with_login(client, test_user, test_product):
+    """Test de agregar al carrito con usuario logueado."""
+    # Primero hacer login
+    client.post('/auth/login', data={
+        'email': test_user.email,
+        'password': 'testpassword123'
+    })
+    
+    response = client.post(f'/cart/add/{test_product.id}', data={
+        'quantity': 1
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Producto agregado al carrito'.encode('utf-8') in response.data
 
-def test_place_order_with_items(logged_in_client, app):
-    with app.app_context():
-        # Crear una categoría primero
-        category = Category(name='Test Category')
-        db.session.add(category)
-        db.session.commit()
-        # Crear un producto y agregarlo al carrito
-        product = Product(
-            product_name='Test Product',
-            current_price=10.0,
-            stock_quantity=5,
-            category_id=category.id
-        )
-        db.session.add(product)
-        db.session.commit()
-        cart_item = Cart(
-            product_id=product.id,
-            customer_id=1,
-            quantity=1,
-            total_price=10.0
-        )
-        db.session.add(cart_item)
-        db.session.commit()
-        response = logged_in_client.get('/place-order')
-        assert response.status_code == 302  # Redirect to orders
-        assert Order.query.filter_by(customer_id=1).first() is not None
+def test_remove_from_cart(client, test_user, test_product):
+    """Test de eliminar del carrito."""
+    # Primero hacer login
+    client.post('/auth/login', data={
+        'email': test_user.email,
+        'password': 'testpassword123'
+    })
+    
+    # Agregar producto al carrito
+    client.post(f'/cart/add/{test_product.id}', data={
+        'quantity': 1
+    })
+    
+    # Obtener el carrito
+    cart = Cart.query.filter_by(customer_id=test_user.id).first()
+    assert cart is not None
+    
+    response = client.post(f'/cart/remove/{cart.id}', follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Producto eliminado del carrito'.encode('utf-8') in response.data
 
-def test_search_suggestions(client, app):
-    with app.app_context():
-        # Crear productos y categorías
-        category = Category(name='Electronics')
-        db.session.add(category)
-        db.session.commit()
-        product = Product(
-            product_name='Laptop',
-            description='A powerful laptop',
-            current_price=999.99,
-            stock_quantity=10,
-            category_id=category.id
-        )
-        db.session.add(product)
-        db.session.commit()
-        response = client.get('/api/search/suggestions?q=laptop')
-        assert response.status_code == 200
-        assert b'laptop' in response.data or b'Laptop' in response.data
+def test_update_cart_quantity(client, test_user, test_product):
+    """Test de actualizar cantidad en el carrito."""
+    # Primero hacer login
+    client.post('/auth/login', data={
+        'email': test_user.email,
+        'password': 'testpassword123'
+    })
+    
+    # Agregar producto al carrito
+    client.post(f'/cart/add/{test_product.id}', data={
+        'quantity': 1
+    })
+    
+    # Obtener el carrito
+    cart = Cart.query.filter_by(customer_id=test_user.id).first()
+    assert cart is not None
+    
+    response = client.post(f'/cart/update/{cart.id}', data={
+        'quantity': 2
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Cantidad actualizada'.encode('utf-8') in response.data
 
-def test_search(client, app):
-    with app.app_context():
-        # Create a category first
-        category = Category(name='Electronics')
-        db.session.add(category)
-        db.session.commit()
+def test_checkout_requires_login(client):
+    """Test de que el checkout requiere inicio de sesión."""
+    response = client.get('/place-order', follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Por favor inicia sesión para acceder a esta página'.encode('utf-8') in response.data
 
-        # Create a product
-        product = Product(
-            product_name='Laptop',
-            description='A powerful laptop',
-            current_price=999.99,
-            stock_quantity=10,
-            category_id=category.id
-        )
-        db.session.add(product)
-        db.session.commit()
+def test_checkout_with_empty_cart(client, test_user):
+    """Test de checkout con carrito vacío."""
+    # Primero hacer login
+    client.post('/auth/login', data={
+        'email': test_user.email,
+        'password': 'testpassword123'
+    })
+    
+    response = client.get('/checkout', follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Tu carrito está vacío'.encode('utf-8') in response.data
 
-        response = client.get('/search?q=laptop')
-        assert response.status_code == 200
-        assert b'Laptop' in response.data
+def test_checkout_with_items(client, test_user, test_product):
+    """Test de checkout con items en el carrito."""
+    # Primero hacer login
+    client.post('/auth/login', data={
+        'email': test_user.email,
+        'password': 'testpassword123'
+    })
+    
+    # Agregar producto al carrito
+    client.post(f'/cart/add/{test_product.id}', data={
+        'quantity': 1
+    })
+    
+    response = client.post('/checkout', data={
+        'shipping_address': 'Test Address'
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Pedido realizado exitosamente'.encode('utf-8') in response.data
 
-def test_add_product_requires_admin(logged_in_client):
-    response = logged_in_client.get('/add-product')
-    assert response.status_code == 302  # Redirect to home
+def test_order_history_requires_login(client):
+    """Test de que el historial de pedidos requiere inicio de sesión."""
+    response = client.get('/orders', follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Por favor inicia sesión para acceder a esta página'.encode('utf-8') in response.data
 
-def test_list_products(client, app):
-    with app.app_context():
-        # Create a category first
-        category = Category(name='Electronics')
-        db.session.add(category)
-        db.session.commit()
+def test_order_history_with_login(client, test_user):
+    """Test de historial de pedidos con usuario logueado."""
+    # Primero hacer login
+    client.post('/auth/login', data={
+        'email': test_user.email,
+        'password': 'testpassword123'
+    })
+    
+    response = client.get('/orders')
+    assert response.status_code == 200
+    assert 'Mis pedidos'.encode('utf-8') in response.data
 
-        # Create a product
-        product = Product(
-            product_name='Laptop',
-            current_price=1000.0,
-            stock_quantity=5,
-            category_id=category.id
-        )
-        db.session.add(product)
-        db.session.commit()
-        
-        response = client.get('/list-products')
-        assert response.status_code == 200
-        assert b'Laptop' in response.data
+def test_search_page(client):
+    """Test de la página de búsqueda."""
+    response = client.get('/search')
+    assert response.status_code == 200
+    assert b'Buscar productos' in response.data
+
+def test_search_with_query(client, test_product):
+    response = client.get(f'/search?q={test_product.product_name}')
+    assert response.status_code == 200
+    assert test_product.product_name.encode() in response.data
+
+def test_category_list_page(client):
+    """Test de la página de lista de categorías."""
+    response = client.get('/categories')
+    assert response.status_code == 200
+    assert 'Categorías'.encode('utf-8') in response.data
+
+def test_category_products_page(client, test_category):
+    """Test de la página de productos por categoría."""
+    response = client.get(f'/category/{test_category.id}/products')
+    assert response.status_code == 200
+    assert test_category.name.encode() in response.data
+
+def test_user_profile_requires_login(client):
+    """Test de que el perfil requiere inicio de sesión."""
+    response = client.get('/profile', follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Por favor inicia sesión para acceder a esta página'.encode('utf-8') in response.data
+
+def test_user_profile_with_login(client, test_user):
+    """Test de perfil con usuario logueado."""
+    # Primero hacer login
+    client.post('/auth/login', data={
+        'email': test_user.email,
+        'password': 'testpassword123'
+    })
+    
+    response = client.get('/profile')
+    assert response.status_code == 200
+    assert test_user.username.encode('utf-8') in response.data
+
+def test_edit_profile(client, test_user):
+    """Test de edición de perfil."""
+    # Primero hacer login
+    client.post('/auth/login', data={
+        'email': test_user.email,
+        'password': 'testpassword123'
+    })
+    
+    response = client.post('/profile/edit', data={
+        'username': 'updatedusername',
+        'email': test_user.email,
+        'phone_number': '123456789',
+        'address': 'Test Address'
+    }, follow_redirects=True)
+    
+    assert response.status_code == 200
+    assert 'Perfil actualizado exitosamente'.encode('utf-8') in response.data
 
 

@@ -3,14 +3,6 @@
 {% block title %}Editar Producto{% endblock %}
 
 {% block body %}
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category }}">{{ message }}</div>
-        {% endfor %}
-    {% endif %}
-{% endwith %}
-
 <div id="container" class="container" style="display: flex; justify-content: flex-start; padding: 20px; min-height: 100vh; background-color: #f4f7f6; color: #333;">
     <div style="width: 100%; max-width: 1200px; background-color: #cd9b1c; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); padding: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
 

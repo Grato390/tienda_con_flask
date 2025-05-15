@@ -1,6 +1,6 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}{{ product.product_name }} - Detalles{% endblock %}
+{% block title %}{{ product.product_name }}{% endblock %}
 
 {% block styles %}
 <style>
@@ -82,105 +82,80 @@
 {% endblock %}
 
 {% block body %}
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category }}">{{ message }}</div>
-        {% endfor %}
-    {% endif %}
-{% endwith %}
 <div class="container py-5">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('views.home') }}">Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('views.category_products', category_id=product.category_id) }}">{{ product.category.name }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ product.product_name }}</li>
+        </ol>
+    </nav>
+
     <div class="row">
         <div class="col-md-6">
             {% if product.product_picture %}
-            <img src="{{ product.product_picture }}" alt="{{ product.product_name }}" class="product-image">
+            <img src="{{ url_for('static', filename='uploads/' + product.product_picture) }}" 
+                 class="img-fluid rounded shadow-sm" alt="{{ product.product_name }}">
             {% else %}
-            <div class="product-image d-flex align-items-center justify-content-center">
-                <i class="fas fa-box-open fa-5x text-muted"></i>
+            <div class="bg-light rounded shadow-sm d-flex align-items-center justify-content-center" 
+                 style="height: 400px;">
+                <i class="fas fa-image fa-5x text-muted"></i>
             </div>
             {% endif %}
         </div>
         
         <div class="col-md-6">
-            <div class="product-detail">
-                <h1 class="product-title">{{ product.product_name }}</h1>
-                
-                <div class="product-price">
-                    ${{ "%.2f"|format(product.current_price) }}
-                    {% if product.previous_price and product.previous_price > product.current_price %}
-                    <small class="text-muted text-decoration-line-through ms-2">${{ "%.2f"|format(product.previous_price) }}</small>
-                    {% endif %}
-                </div>
-                
-                <div class="product-meta">
-                    <div class="meta-item">
-                        <span class="meta-label">Categoría:</span>
-                        <a href="{{ url_for('views.category_products', category_id=product.category_id) }}" class="text-primary">
-                            {{ product.category.name }}
-                        </a>
-                    </div>
-                    <div class="meta-item">
-                        <span class="meta-label">Disponibilidad:</span>
-                        {% if product.in_stock %}
-                        <span class="text-success">En stock ({{ product.stock_quantity }} unidades)</span>
-                        {% else %}
-                        <span class="text-danger">Agotado</span>
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <div class="product-description">
-                    <h5 class="mb-3">Descripción del producto</h5>
-                    {{ product.description|safe if product.description else 'No hay descripción disponible para este producto.' }}
-                </div>
-                
-                {% if current_user.is_authenticated and not current_user.is_admin %}
-                <!-- User actions -->
-                <div class="d-flex flex-wrap">
-                    {% if product.in_stock %}
-                    <button class="btn btn-warning btn-custom add-to-cart" data-product-id="{{ product.id }}">
-                        <i class="fas fa-cart-plus"></i> Añadir al carrito
-                    </button>
-                    {% else %}
-                    <button class="btn btn-secondary btn-custom" disabled>
-                        <i class="fas fa-times-circle"></i> Producto no disponible
-                    </button>
-                    {% endif %}
-                    
-                    <button class="btn btn-outline-secondary btn-custom">
-                        <i class="far fa-heart"></i> Añadir a favoritos
-                    </button>
-                </div>
-                {% elif not current_user.is_authenticated %}
-                <!-- Guest actions -->
-                <div class="alert alert-info">
-                    <p class="mb-3">¡Inicia sesión para comprar o añadir productos al carrito!</p>
-                    <a href="{{ url_for('auth.login') }}" class="btn btn-primary me-2">
-                        <i class="fas fa-sign-in-alt"></i> Iniciar sesión
-                    </a>
-                    <a href="{{ url_for('auth.sign_up') }}" class="btn btn-outline-primary">
-                        <i class="fas fa-user-plus"></i> Crear cuenta
-                    </a>
-                </div>
-                {% endif %}
-                
-                {% if current_user.is_authenticated and (current_user.is_admin or current_user.is_super_admin) %}
-                <!-- Admin actions -->
-                <div class="admin-actions">
-                    <h5 class="mb-3">Acciones de administrador</h5>
-                    <div class="d-flex flex-wrap">
-                        <a href="{{ url_for('views.edit_product', product_id=product.id) }}" class="btn btn-primary btn-custom">
-                            <i class="fas fa-edit"></i> Editar producto
-                        </a>
-                        <form action="{{ url_for('views.delete_product', product_id=product.id) }}" method="POST" class="d-inline">
-                            <button type="submit" class="btn btn-danger btn-custom" onclick="return confirm('¿Estás seguro de eliminar este producto?')">
-                                <i class="fas fa-trash"></i> Eliminar producto
-                            </button>
-                        </form>
-                    </div>
-                </div>
+            <h1 class="mb-3">{{ product.product_name }}</h1>
+            
+            <div class="mb-4">
+                <h2 class="h3 text-primary mb-2">${{ "%.2f"|format(product.current_price) }}</h2>
+                {% if product.original_price and product.original_price > product.current_price %}
+                <p class="text-muted">
+                    <del>${{ "%.2f"|format(product.original_price) }}</del>
+                    <span class="badge bg-success ms-2">
+                        {{ ((product.original_price - product.current_price) / product.original_price * 100)|round|int }}% OFF
+                    </span>
+                </p>
                 {% endif %}
             </div>
+            
+            <div class="mb-4">
+                <h3 class="h5 mb-2">Descripción</h3>
+                <p class="text-muted">{{ product.description }}</p>
+            </div>
+            
+            <div class="mb-4">
+                <h3 class="h5 mb-2">Stock</h3>
+                <p class="{% if product.stock_quantity > 0 %}text-success{% else %}text-danger{% endif %}">
+                    {% if product.stock_quantity > 0 %}
+                    <i class="fas fa-check-circle me-2"></i>Disponible ({{ product.stock_quantity }} unidades)
+                    {% else %}
+                    <i class="fas fa-times-circle me-2"></i>Agotado
+                    {% endif %}
+                </p>
+            </div>
+            
+            {% if product.previous_price and product.previous_price > product.current_price %}
+            <div class="mb-4">
+                <span class="badge bg-success">
+                    {{ ((product.previous_price - product.current_price) / product.previous_price * 100)|round|int }}% OFF
+                </span>
+            </div>
+            {% endif %}
+            
+            {% if product.stock_quantity > 0 %}
+            <div class="d-grid gap-2">
+                <a href="{{ url_for('views.add_to_cart', item_id=product.id) }}" 
+                   class="btn btn-primary btn-lg">
+                    <i class="fas fa-shopping-cart me-2"></i>Agregar al Carrito
+                </a>
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Este producto está actualmente agotado.
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -194,13 +169,13 @@
         {% for related in related_products %}
         <div class="col">
             <div class="card h-100">
-                <a href="{{ url_for('product_blueprint.detail', id=related.id) }}">
+                <a href="{{ url_for('views.product_detail', product_id=related.id) }}">
                     <img src="{{ related.product_picture }}" class="card-img-top" alt="{{ related.product_name }}" 
                          style="height: 180px; object-fit: contain; padding: 15px;">
                 </a>
                 <div class="card-body">
                     <h5 class="card-title">
-                        <a href="{{ url_for('product_blueprint.detail', id=related.id) }}" class="text-decoration-none text-dark">
+                        <a href="{{ url_for('views.product_detail', product_id=related.id) }}" class="text-decoration-none text-dark">
                             {{ related.product_name|truncate(40) }}
                         </a>
                     </h5>
@@ -220,7 +195,7 @@
                 </div>
                 <div class="card-footer bg-transparent">
                     <div class="d-grid gap-2">
-                        <a href="{{ url_for('product_blueprint.detail', id=related.id) }}" 
+                        <a href="{{ url_for('views.product_detail', product_id=related.id) }}" 
                            class="btn btn-sm btn-outline-primary">
                             Ver detalles
                         </a>

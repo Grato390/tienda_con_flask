@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Carrito de compras{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h1 class="mb-4">Carrito de compras</h1>
+    
+    {% if cart_items %}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Precio</th>
+                        <th>Cantidad</th>
+                        <th>Subtotal</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in cart_items %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                {% if item.product.product_picture %}
+                                    <img src="{{ url_for('static', filename='uploads/' + item.product.product_picture) }}" 
+                                         alt="{{ item.product.product_name }}"
+                                         style="width: 50px; height: 50px; object-fit: cover; margin-right: 10px;">
+                                {% else %}
+                                    <img src="{{ url_for('static', filename='images/no-image.png') }}" 
+                                         alt="No image"
+                                         style="width: 50px; height: 50px; object-fit: cover; margin-right: 10px;">
+                                {% endif %}
+                                <span>{{ item.product.product_name }}</span>
+                            </div>
+                        </td>
+                        <td>${{ "%.2f"|format(item.product.current_price) }}</td>
+                        <td>
+                            <div class="input-group" style="width: 120px;">
+                                <button class="btn btn-outline-secondary" type="button" 
+                                        onclick="updateCart({{ item.product.id }}, 'decrease')">-</button>
+                                <input type="number" class="form-control text-center" value="{{ item.quantity }}" 
+                                       min="1" max="{{ item.product.stock_quantity }}" readonly>
+                                <button class="btn btn-outline-secondary" type="button" 
+                                        onclick="updateCart({{ item.product.id }}, 'increase')">+</button>
+                            </div>
+                        </td>
+                        <td>${{ "%.2f"|format(item.product.current_price * item.quantity) }}</td>
+                        <td>
+                            <button class="btn btn-danger btn-sm" onclick="removeFromCart({{ item.product.id }})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                        <td><strong>${{ "%.2f"|format(total) }}</strong></td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        
+        <div class="d-flex justify-content-between mt-4">
+            <a href="{{ url_for('views.home') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Continuar comprando
+            </a>
+            <a href="{{ url_for('views.checkout') }}" class="btn btn-primary">
+                <i class="fas fa-shopping-cart"></i> Proceder al pago
+            </a>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-shopping-cart"></i> Tu carrito está vacío. 
+            <a href="{{ url_for('views.home') }}" class="alert-link">¡Comienza a comprar!</a>
+        </div>
+    {% endif %}
+</div>
+
+{% block scripts %}
+<script>
+function updateCart(productId, action) {
+    fetch(`/cart/update/${productId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: action })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert(data.message);
+        }
+    });
+}
+
+function removeFromCart(productId) {
+    if (confirm('¿Estás seguro de que deseas eliminar este producto del carrito?')) {
+        fetch(`/cart/remove/${productId}`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert(data.message);
+            }
+        });
+    }
+}
+</script>
+{% endblock %}
+{% endblock %} 

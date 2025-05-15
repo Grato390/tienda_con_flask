@@ -6,11 +6,11 @@ from . import db
 import os
 from werkzeug.utils import secure_filename
 
-product_blueprint = Blueprint('product_blueprint', __name__, 
+product = Blueprint('product', __name__, 
                     template_folder='templates/product',
                     url_prefix='/product')
 
-@product_blueprint.route('/')
+@product.route('/')
 def product_list():
     # Paginación
     page = request.args.get('page', 1, type=int)
@@ -44,7 +44,7 @@ def product_list():
     
     return render_template('product/list.html', products=products, search_query=search_query)
 
-@product_blueprint.route('/add', methods=['GET', 'POST'])
+@product.route('/add', methods=['GET', 'POST'])
 @login_required
 def add_product():
     categories = Category.query.all()
@@ -82,12 +82,12 @@ def add_product():
         
         db.session.add(new_product)
         db.session.commit()
-        flash('Product added successfully!', 'success')
+        flash('Producto agregado exitosamente', 'success')
         return redirect(url_for('product.product_list'))
     
     return render_template('product/add.html', categories=categories)
 
-@product_blueprint.route('/edit/<int:id>', methods=['GET', 'POST'])
+@product.route('/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
 def edit_product(id):
     product = Product.query.get_or_404(id)
@@ -112,17 +112,18 @@ def edit_product(id):
             product.product_picture = f'/media/{filename}'
         
         db.session.commit()
-        flash('Product updated successfully!', 'success')
+        flash('Producto actualizado exitosamente', 'success')
         return redirect(url_for('product.product_list'))
     
     return render_template('product/edit.html', product=product, categories=categories)
 
-@product_blueprint.route('/delete/<int:id>', methods=['GET', 'POST'])
+@product.route('/delete/<int:id>', methods=['GET', 'POST'])
+@login_required
 def delete_product(id):
     if request.method == 'GET':
         # Mostrar página de confirmación
         product = Product.query.get_or_404(id)
-        return render_template('product/delete_product.html', product=product)
+        return render_template('product/delete.html', product=product)
     else:
         # Procesar el borrado
         try:
@@ -134,14 +135,14 @@ def delete_product(id):
         except Exception as e:
             print('Error al eliminar:', e)
             flash('Error al eliminar el producto', 'error')
-        return redirect(url_for('admin.shop_items'))
+        return redirect(url_for('product.product_list'))
 
-@product_blueprint.route('/detail/<int:id>')
-def detail(id):
+@product.route('/detail/<int:id>')
+def product_detail(id):
     product = Product.query.get_or_404(id)
     return render_template('product/detail.html', product=product)
 
-@product_blueprint.route('/category/<int:category_id>')
+@product.route('/category/<int:category_id>')
 def category_products(category_id):
     category = Category.query.get_or_404(category_id)
     
@@ -175,10 +176,10 @@ def category_products(category_id):
     # Aplicar paginación
     products = products.paginate(page=page, per_page=per_page, error_out=False)
     
-    return render_template('categoria/category_products.html', 
+    return render_template('product/category_products.html', 
                          category=category, 
                          products=products,
                          search_query=search_query)
 
 # Export the blueprint with the correct name
-product_blueprint = product_blueprint
+product = product

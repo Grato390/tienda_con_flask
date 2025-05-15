@@ -45,70 +45,49 @@ def home():
 @views.route('/add-to-cart/<int:item_id>')
 @login_required
 def add_to_cart(item_id):
-    # Verificar si el usuario es administrador
-    if current_user.is_admin:
-        flash('Los administradores no pueden realizar compras.', 'warning')
-        return redirect(request.referrer)
-    
-    item_to_add = Product.query.get(item_id)
-    if not item_to_add:
-        flash('Producto no encontrado', 'error')
-        return redirect(request.referrer)
-    
-    # Verificar stock
-    if item_to_add.stock_quantity <= 0:
-        flash('El producto está agotado', 'error')
-        return redirect(request.referrer)
-    
-    # Check if the item is already in the cart
-    item_exists = Cart.query.filter_by(product_id=item_id, customer_id=current_user.id).first()
-    if item_exists:
-        try:
-            # Verificar si hay suficiente stock
-            if item_to_add.stock_quantity < item_exists.quantity + 1:
-                flash(f'No hay suficiente stock disponible. Stock actual: {item_to_add.stock_quantity}', 'error')
-                return redirect(request.referrer)
-                
-            item_exists.quantity = item_exists.quantity + 1
-            item_exists.total_price = item_exists.quantity * item_to_add.current_price
-            db.session.commit()
-            flash(f'Cantidad de {item_to_add.product_name} actualizada en el carrito', 'success')
-            return redirect(request.referrer)
-        except Exception as e:
-            print('Error al actualizar cantidad:', e)
-            flash(f'No se pudo actualizar la cantidad: {str(e)}', 'error')
-            return redirect(request.referrer)
-
-    # Create a new cart item
-    new_cart_item = Cart()
-    new_cart_item.quantity = 1
-    new_cart_item.product_id = item_to_add.id
-    new_cart_item.customer_id = current_user.id
-    new_cart_item.total_price = item_to_add.current_price
-
-    try:
-        db.session.add(new_cart_item)
+    if current_user.role in ['admin', 'super_admin']:
+        flash('Los administradores no pueden agregar productos al carrito', 'error')
+        return redirect(url_for('views.home'))
+        
+    product = Product.query.get_or_404(item_id)
+    if product.stock_quantity <= 0:
+        flash('Producto sin stock', 'error')
+        return redirect(url_for('views.home'))
+        
+    cart = Cart.query.filter_by(customer_id=current_user.id).first()
+    if not cart:
+        cart = Cart(customer_id=current_user.id)
+        db.session.add(cart)
         db.session.commit()
-        flash(f'{item_to_add.product_name} agregado al carrito', 'success')
-    except Exception as e:
-        print('Error al agregar al carrito:', e)
-        flash(f'Error al agregar al carrito: {str(e)}', 'error')
-
-    return redirect(request.referrer)
-
+        
+    cart_item = CartItem.query.filter_by(cart_id=cart.id, product_id=product.id).first()
+    if cart_item:
+        cart_item.quantity += 1
+    else:
+        cart_item = CartItem(cart_id=cart.id, product_id=product.id, quantity=1)
+        db.session.add(cart_item)
+        
+    db.session.commit()
+    flash('Producto agregado al carrito', 'success')
+    return redirect(url_for('views.cart'))
 
 
 @views.route('/cart')
 @login_required
-def show_cart():
-    if current_user.is_admin:
-        flash('Los administradores no pueden acceder al carrito.', 'warning')
+def cart():
+    if current_user.role in ['admin', 'super_admin']:
+        flash('Los administradores no pueden acceder al carrito', 'error')
         return redirect(url_for('views.home'))
-    cart = Cart.query.filter_by(customer_id=current_user.id).all()
-    amount = 0
-    for item in cart:
-        amount += item.product.current_price * item.quantity
-    return render_template('cliente/cart.html', cart=cart, amount=amount, total=amount+200)
+        
+    cart = Cart.query.filter_by(customer_id=current_user.id).first()
+    if not cart:
+        cart = Cart(customer_id=current_user.id)
+        db.session.add(cart)
+        db.session.commit()
+        
+    items = CartItem.query.filter_by(cart_id=cart.id).all()
+    total = sum(item.product.current_price * item.quantity for item in items)
+    return render_template('cart.html', items=items, total=total)
 
 
 @views.route('/pluscart')
@@ -253,21 +232,13 @@ def place_order():
 
 @views.route('/orders')
 @login_required
-def order():
-    # Obtener los pedidos del usuario actual ordenados por fecha descendente
-    orders = Order.query.filter_by(customer_id=current_user.id)\
-                      .order_by(Order.created_at.desc())\
-                      .all()
-    
-    # Para cada pedido, cargar explícitamente los ítems y sus productos asociados
-    for order in orders:
-        # Esto asegura que los ítems y sus productos estén cargados
-        order_items = OrderItem.query.filter_by(order_id=order.id).all()
-        for item in order_items:
-            # Cargar el producto asociado a cada ítem
-            _ = item.product
-    
-    return render_template('cliente/orders.html', orders=orders)
+def orders():
+    if current_user.role in ['admin', 'super_admin']:
+        flash('Los administradores no pueden acceder a los pedidos', 'error')
+        return redirect(url_for('views.home'))
+        
+    orders = Order.query.filter_by(customer_id=current_user.id).order_by(Order.date.desc()).all()
+    return render_template('orders.html', orders=orders)
 
 
 @views.route('/api/search/suggestions')
@@ -373,156 +344,15 @@ def search_suggestions():
 
 @views.route('/search')
 def search():
-    # Obtener el término de búsqueda
-    query = request.args.get('q', '').strip()
-    
-    # Si no hay término de búsqueda, redirigir a la página de inicio
-    if not query:
-        return redirect(url_for('views.home'))
-    
-    # Configuración de paginación
-    page = request.args.get('page', 1, type=int)
-    per_page = 20
-    
-    # Obtener parámetros de ordenamiento
-    sort = request.args.get('sort', 'relevance')
-    order = request.args.get('order', 'desc')
-    
-    # Obtener parámetros de filtro
-    min_price = request.args.get('min_price', type=float)
-    max_price = request.args.get('max_price', type=float)
-    in_stock = request.args.get('in_stock') == '1'
-    category_ids = request.args.getlist('category', type=int)
-    
-    # Construir la consulta de búsqueda
-    search_query = f"%{query}%"
-    
-    # Búsqueda en nombres de productos, descripciones y categorías
-    products_query = Product.query.join(Category).filter(
-        (Product.product_name.ilike(search_query)) |
-        (Product.description.ilike(search_query)) |
-        (Category.name.ilike(search_query))
-    )
-    
-    # Aplicar filtros
-    if min_price is not None:
-        products_query = products_query.filter(Product.current_price >= min_price)
-    if max_price is not None:
-        products_query = products_query.filter(Product.current_price <= max_price)
-    if in_stock:
-        products_query = products_query.filter(Product.in_stock > 0)
-    if category_ids:
-        products_query = products_query.filter(Product.category_id.in_(category_ids))
-    
-    # Aplicar ordenamiento
-    if sort == 'name':
-        if order == 'asc':
-            products_query = products_query.order_by(Product.product_name.asc())
-        else:
-            products_query = products_query.order_by(Product.product_name.desc())
-    elif sort == 'price':
-        if order == 'asc':
-            products_query = products_query.order_by(Product.current_price.asc())
-        else:
-            products_query = products_query.order_by(Product.current_price.desc())
+    query = request.args.get('q', '')
+    if query:
+        products = Product.query.filter(
+            Product.product_name.ilike(f'%{query}%') |
+            Product.description.ilike(f'%{query}%')
+        ).all()
     else:
-        # Orden por relevancia (predeterminado)
-        products_query = products_query.order_by(Product.id.desc())
-    
-    # Obtener todas las categorías para el filtro
-    categories = Category.query.order_by(Category.name).all()
-    
-    # Generar búsquedas relacionadas más inteligentes
-    related_searches = []
-    
-    # 1. Búsquedas con palabras similares (usando búsqueda difusa)
-    if len(query) > 3:
-        # Buscar productos con nombres similares
-        similar_products = Product.query.filter(
-            Product.product_name.ilike(f"%{query}%")
-        ).limit(3).all()
-        
-        for product in similar_products:
-            # Extraer palabras clave únicas del nombre del producto
-            product_words = set(word.lower() for word in product.product_name.split() if len(word) > 3)
-            query_words = set(word.lower() for word in query.split() if len(word) > 3)
-            
-            # Añadir palabras del producto que no estén en la consulta
-            new_terms = list(product_words - query_words)
-            if new_terms:
-                related_search = f"{query} {new_terms[0]}"
-                if related_search not in related_searches:
-                    related_searches.append(related_search)
-    
-    # 2. Búsquedas con una palabra menos (solo si no hay suficientes sugerencias)
-    if len(related_searches) < 3 and len(query.split()) > 1:
-        words = query.split()
-        for i in range(min(3, len(words))):
-            shorter_query = ' '.join(words[:i] + words[i+1:])
-            if shorter_query and shorter_query not in related_searches:
-                related_searches.append(shorter_query)
-    
-    # 3. Búsquedas populares en la misma categoría
-    if category_ids:
-        popular_in_category = Product.query.filter(
-            Product.category_id.in_(category_ids),
-            Product.product_name != query,
-            Product.in_stock > 0
-        ).order_by(
-            Product.times_ordered.desc()
-        ).limit(3).all()
-        
-        for product in popular_in_category:
-            if len(related_searches) < 5:  # Limitar el número total de sugerencias
-                related_searches.append(product.product_name)
-    
-    # Eliminar duplicados y limitar el número de sugerencias
-    related_searches = list(dict.fromkeys(related_searches))[:5]
-    
-    # Aplicar paginación
-    products = products_query.paginate(page=page, per_page=per_page, error_out=False)
-    
-    # Mejorar la sugerencia de búsqueda alternativa
-    did_you_mean = None
-    if products.total == 0 and len(query) > 2:
-        # Buscar términos similares usando búsqueda difusa
-        from difflib import get_close_matches
-        
-        # Obtener todas las palabras de productos para sugerencias
-        all_product_words = set()
-        for product in Product.query.with_entities(Product.product_name).all():
-            all_product_words.update(word.lower() for word in product[0].split() if len(word) > 2)
-        
-        # Buscar coincidencias cercanas para cada palabra de la consulta
-        suggested_terms = []
-        for word in query.lower().split():
-            if len(word) > 2:  # Solo buscar sugerencias para palabras de 3+ caracteres
-                matches = get_close_matches(word, all_product_words, n=1, cutoff=0.6)
-                if matches:
-                    suggested_terms.append(matches[0])
-        
-        # Si encontramos sugerencias, construir una nueva consulta
-        if suggested_terms:
-            did_you_mean = ' '.join(suggested_terms)
-        else:
-            # Si no hay sugerencias cercanas, buscar productos con palabras similares
-            similar = Product.query.filter(
-                Product.product_name.ilike(f"%{query[:3]}%")
-            ).order_by(
-                db.func.length(Product.product_name)
-            ).first()
-            if similar:
-                did_you_mean = ' '.join(similar.product_name.split()[:3])  # Tomar hasta 3 palabras
-    
-    return render_template('search_results.html', 
-                         query=query, 
-                         products=products,
-                         categories=categories,
-                         related_searches=related_searches[:5],
-                         did_you_mean=did_you_mean,
-                         sort=sort,
-                         order=order,
-                         request_args=request.args)
+        products = []
+    return render_template('search.html', products=products, query=query)
 
 @views.route('/add-product', methods=['GET', 'POST'])
 @login_required
@@ -737,13 +567,9 @@ def confirm_delete(item_id):
 
 
 @views.route('/categories')
-@login_required
 def categories():
-    if not (current_user.is_admin or current_user.is_super_admin):
-        flash('You do not have permission to access this page.', 'error')
-        return redirect(url_for('views.home'))
     categories = Category.query.all()
-    return render_template('categoria/categoria.html', categories=categories)
+    return render_template('categories.html', categories=categories)
 
 class CategoryForm(FlaskForm):
     name = StringField('Name', validators=[DataRequired()])
@@ -815,29 +641,21 @@ def delete_category(category_id):
     flash('Category deleted successfully', 'success')
     return redirect(url_for('views.categories'))
 
-@views.route('/category/<int:category_id>')
+@views.route('/category/<int:category_id>/products')
 def category_products(category_id):
-    # Obtener el número de página de los parámetros de la URL, por defecto 1
-    page = request.args.get('page', 1, type=int)
-    # Número de productos por página
-    per_page = 12
-    
-    # Obtener la categoría
     category = Category.query.get_or_404(category_id)
+    query = request.args.get('q', '')
     
-    # Consulta de productos con paginación
-    products_query = Product.query.filter_by(category_id=category_id)
-    
-    # Aplicar paginación
-    products = products_query.paginate(page=page, per_page=per_page, error_out=False)
-    
-    # Si no hay productos en la página actual, redirigir a la primera página
-    if not products.items and page > 1:
-        return redirect(url_for('views.category_products', category_id=category_id))
-    
-    return render_template('categoria/category_products.html', 
-                         category=category, 
-                         products=products)
+    if query:
+        products = Product.query.filter(
+            Product.category_id == category_id,
+            (Product.product_name.ilike(f'%{query}%')) |
+            (Product.description.ilike(f'%{query}%'))
+        ).all()
+    else:
+        products = Product.query.filter_by(category_id=category_id).all()
+        
+    return render_template('category_products.html', category=category, products=products, query=query)
 
 @views.route('/make_admin/<int:user_id>')
 @login_required
@@ -927,72 +745,30 @@ def usage_quality():
 @views.route('/profile')
 @login_required
 def profile():
-    form = EditProfileForm()
-    if getattr(current_user, 'is_first_login', False):
-        # Prellenar con los datos actuales
-        form.username.data = current_user.username
-        form.email.data = current_user.email
-        form.phone_number.data = current_user.phone_number
-        form.address.data = current_user.address
-        return render_template('auth/edit_profile.html', form=form, first_time=True)
-    return render_template('profile.html', form=form)
+    if current_user.role in ['admin', 'super_admin']:
+        flash('Los administradores no pueden acceder al perfil de cliente', 'error')
+        return redirect(url_for('views.home'))
+    return render_template('cliente/profile.html')
 
 @views.route('/update_profile', methods=['POST'])
 @login_required
 def update_profile():
+    if current_user.role in ['admin', 'super_admin']:
+        flash('Los administradores no pueden actualizar el perfil de cliente', 'error')
+        return redirect(url_for('views.home'))
+        
     try:
-        if request.method == 'POST':
-            # Verificar si el email ya está en uso por otro usuario
-            email = request.form.get('email')
-            if email != current_user.email:
-                existing_user = Customer.query.filter_by(email=email).first()
-                if existing_user and existing_user.id != current_user.id:
-                    flash('El email ya está en uso por otro usuario.', 'danger')
-                    return redirect(url_for('views.profile'))
-
-            # Verificar si el username ya está en uso por otro usuario
-            username = request.form.get('username')
-            if username != current_user.username:
-                existing_user = Customer.query.filter_by(username=username).first()
-                if existing_user and existing_user.id != current_user.id:
-                    flash('El nombre de usuario ya está en uso.', 'danger')
-                    return redirect(url_for('views.profile'))
-
-            # Actualizar los datos del usuario
-            current_user.username = username
-            current_user.email = email
-            current_user.phone_number = request.form.get('phone')
-            current_user.address = request.form.get('address')
-            current_user.bio = request.form.get('bio')
-            
-            # Marcar que el perfil ya está completo
-            current_user.is_first_login = False
-
-            # Manejar la subida de la imagen de perfil
-            if 'profile_picture' in request.files:
-                file = request.files['profile_picture']
-                if file and file.filename:
-                    # Verificar la extensión del archivo
-                    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
-                    if '.' in file.filename and file.filename.rsplit('.', 1)[1].lower() in allowed_extensions:
-                        filename = secure_filename(file.filename)
-                        # Agregar timestamp al nombre del archivo para evitar duplicados
-                        filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}"
-                        file_path = os.path.join('website/static/uploads', filename)
-                        file.save(file_path)
-                        current_user.profile_picture = f'/static/uploads/{filename}'
-                    else:
-                        flash('Tipo de archivo no permitido. Use PNG, JPG, JPEG o GIF.', 'danger')
-                        return redirect(url_for('views.profile'))
-
-            db.session.commit()
-            flash('Perfil actualizado exitosamente.', 'success')
-        else:
-            flash('Método no permitido.', 'danger')
+        current_user.username = request.form.get('username')
+        current_user.email = request.form.get('email')
+        current_user.phone = request.form.get('phone')
+        current_user.address = request.form.get('address')
+        
+        db.session.commit()
+        flash('Perfil actualizado exitosamente', 'success')
     except Exception as e:
         db.session.rollback()
-        flash(f'Error al actualizar el perfil: {str(e)}', 'danger')
-    
+        flash('Error al actualizar el perfil', 'error')
+        
     return redirect(url_for('views.profile'))
 
 @views.route('/update_preferences', methods=['POST'])
@@ -1098,8 +874,30 @@ def update_settings():
 
 @views.route('/login')
 def login_redirect():
-    from flask import redirect, url_for
     return redirect(url_for('auth.login'))
+
+@views.route('/product/<int:product_id>')
+def product_detail(product_id):
+    product = Product.query.get_or_404(product_id)
+    return render_template('product/detail.html', product=product)
+
+@views.route('/about')
+def about():
+    return render_template('about.html')
+
+@views.route('/contact', methods=['GET', 'POST'])
+def contact():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        subject = request.form.get('subject')
+        message = request.form.get('message')
+        
+        # Aquí podrías agregar la lógica para enviar el email
+        flash('Mensaje enviado exitosamente', 'success')
+        return redirect(url_for('views.contact'))
+        
+    return render_template('contact.html')
 
 
 
